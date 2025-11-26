@@ -8,7 +8,8 @@ export default function useAccounts(clientId) {
 
   useEffect(() => {
     let active = true
-    if (!clientId || String(clientId).trim().length < 1) {
+    const digits = String(clientId || '').replace(/\D/g, '')
+    if (digits.length !== 8) {
       setAccounts([])
       setError(null)
       setLoading(false)
@@ -20,7 +21,7 @@ export default function useAccounts(clientId) {
 
     const t = setTimeout(async () => {
       try {
-        const res = await getAccounts(clientId)
+        const res = await getAccounts(digits)
         if (!active) return
         if (res.ok) {
           setAccounts(res.accounts || [])

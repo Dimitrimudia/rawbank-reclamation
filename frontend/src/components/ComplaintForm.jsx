@@ -21,7 +21,7 @@ const schema = z.object({
   description: z.string().min(10, 'Description trop courte'),
   domaine: z.string().optional().or(z.literal('')),
   numeroClient: z.union([z.literal(''), z.string().regex(/^\d{8}$/, 'Doit contenir exactement 8 chiffres')]),
-  telephoneClient: z.union([z.literal(''), z.string().regex(/^\d{10}$/, 'Doit contenir exactement 10 chiffres')]),
+  telephoneClient: z.preprocess((v) => String(v ?? '').replace(/\D/g, ''), z.union([z.literal(''), z.string().regex(/^\d{10}$/, 'Doit contenir exactement 10 chiffres')])),
   numeroCarte: z.string().optional().or(z.literal('')),
   dateTransaction: z.string().optional().or(z.literal('')),
   compteSource: z.string().optional().or(z.literal('')),
@@ -96,6 +96,16 @@ export default function ComplaintForm({ onSuccess }) {
   })
   const [errors, setErrors] = useState({})
   const { loading: loadingAccounts, error: accountsError, accounts } = useAccounts(form.numeroClient)
+  const [accountsFilter, setAccountsFilter] = useState('')
+  const filteredAccounts = useMemo(() => {
+    const q = accountsFilter.trim().toLowerCase()
+    if (!q) return accounts || []
+    return (accounts || []).filter((acc) => {
+      const id = String(acc.id || acc.number || acc.iban || acc.accountNumber || '')
+      const label = String(acc.label || acc.name || acc.number || acc.iban || '')
+      return id.toLowerCase().includes(q) || label.toLowerCase().includes(q)
+    })
+  }, [accounts, accountsFilter])
 
   const userAgent = useMemo(() => navigator.userAgent, [])
   const device = useMemo(() => detectDevice(navigator.userAgent), [])
@@ -108,6 +118,13 @@ export default function ComplaintForm({ onSuccess }) {
       v = checked
     } else if (type === 'radio' && name === 'extourne') {
       v = value === 'oui'
+    } else if (name === 'numeroClient') {
+      const digits = String(value).replace(/\D/g, '').slice(0, 8)
+      v = digits
+    } else if (name === 'telephoneClient') {
+      const digits = String(value).replace(/\D/g, '').slice(0, 10)
+      // Format visuel en groupes de 2
+      v = digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim()
     } else if (name === 'montant') {
       const cleaned = String(value).replace(/[^0-9.,]/g, '')
       v = cleaned
@@ -177,7 +194,7 @@ export default function ComplaintForm({ onSuccess }) {
       ...(form.domaine ? { DOMAINE: form.domaine } : {}),
       // CANALUTILISE retiré du payload
       ...(form.numeroClient ? { NUMEROCLIENT: form.numeroClient } : {}),
-      ...(form.telephoneClient ? { TELEPHONECLIENT: form.telephoneClient } : {}),
+      ...(form.telephoneClient ? { TELEPHONECLIENT: String(form.telephoneClient).replace(/\D/g, '') } : {}),
       ...(form.numeroCarte ? { NUMEROCARTE: String(form.numeroCarte).replace(/\s+/g, '') } : {}),
       ...(form.dateTransaction ? { DATETRANSACTION: form.dateTransaction } : {}),
       ...(form.compteSource ? { COMPTESOURCE: form.compteSource } : {}),
@@ -320,10 +337,14 @@ export default function ComplaintForm({ onSuccess }) {
                   <div className="field floating">
                     <div className="control">
                       <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 7h18v2H3V7Zm0 4h18v2H3v-2Zm0 4h12v2H3v-2Z" fill="currentColor"/></svg>
-                      {accounts && accounts.length > 0 ? (
+                      {loadingAccounts ? (
+                        <select disabled>
+                          <option>Chargement…</option>
+                        </select>
+                      ) : accounts && accounts.length > 0 ? (
                         <select name="compteSource" id="compteSource" value={form.compteSource} onChange={handleChange}>
                           <option value="">Sélectionnez un compte</option>
-                          {accounts.map((acc, idx) => {
+                          {filteredAccounts.map((acc, idx) => {
                             const id = acc.id || acc.number || acc.iban || acc.accountNumber || String(idx)
                             const label = acc.label || acc.name || acc.number || acc.iban || id
                             return <option key={id} value={id}>{label}</option>
@@ -339,6 +360,17 @@ export default function ComplaintForm({ onSuccess }) {
                       <small className="helper">
                         {loadingAccounts ? 'Chargement des comptes…' : accounts && accounts.length > 0 ? 'Choisissez un compte' : 'Numéro de compte/IBAN interne'}
                       </small>
+                    )}
+                    {!loadingAccounts && accounts && accounts.length > 6 && (
+                      <div className="field" style={{ marginTop: '0.5rem' }}>
+                        <input
+                          type="search"
+                          placeholder="Rechercher un compte"
+                          value={accountsFilter}
+                          onChange={(e) => setAccountsFilter(e.target.value)}
+                          aria-label="Rechercher un compte dans la liste"
+                        />
+                      </div>
                     )}
                     {accountsError && !errors.compteSource && (
                       <small className="error" role="alert">{accountsError}</small>
