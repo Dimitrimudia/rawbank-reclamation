@@ -2,6 +2,7 @@ package com.rawbank.reclamations.web;
 
 import com.rawbank.reclamations.service.ElasticsearchService;
 import com.rawbank.reclamations.service.PowerAutomateService;
+import com.rawbank.reclamations.service.PayloadBuilderService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -17,19 +18,23 @@ public class ComplaintsController {
 
     private final ElasticsearchService elasticsearchService;
     private final PowerAutomateService powerAutomateService;
+    private final PayloadBuilderService payloadBuilderService;
 
-    public ComplaintsController(ElasticsearchService elasticsearchService, PowerAutomateService powerAutomateService) {
+    public ComplaintsController(ElasticsearchService elasticsearchService, PowerAutomateService powerAutomateService, PayloadBuilderService payloadBuilderService) {
         this.elasticsearchService = elasticsearchService;
         this.powerAutomateService = powerAutomateService;
+        this.payloadBuilderService = payloadBuilderService;
     }
 
     @PostMapping
     public Mono<ResponseEntity<Map<String, Object>>> submit(@RequestBody @Validated Map<String, Object> payload) {
+        // Construire le payload final (incluant tous les champs par défaut JSON)
+        Map<String, Object> finalPayload = payloadBuilderService.build(payload);
         // 1) Enregistrer via Power Automate
-        return powerAutomateService.submit(payload)
+        return powerAutomateService.submit(finalPayload)
                 .flatMap(paRes -> {
                     // 2) Optionnel: indexer dans Elasticsearch (si configuré)
-                        return elasticsearchService.indexDocument(payload)
+                    return elasticsearchService.indexDocument(finalPayload)
                             .defaultIfEmpty(Map.<String, Object>of())
                             .map(esRes -> {
                                 Map<String, Object> body = new HashMap<>();

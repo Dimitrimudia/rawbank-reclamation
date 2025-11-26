@@ -1,0 +1,27 @@
+{
+  "SITE": "Siège",
+  "ZONE": "Kinshasa",
+  "DEPARTEMENT": "Direction IT / Développement Applicatif",
+  "DOMAINE": "Gestion des identités et accès",
+  "AWSTemplateFormatVersion": "",
+  "TYPERECLAMATION": "Clarification sur l'utilisation des comptes techniques",
+  "CANALUTILISE": "RAWBOT",
+  "MOTIFBCC": "Renforcement de la sécurité des identités",
+  "AGENCECLIENT": "Rawbank - Siège Central",
+  "NUMEROCLIENT": "N/A",
+  "Conditions": {
+    "NOMCLIENT": "JOEL SYASI MWISA"
+  },
+  "TELEPHONECLIENT": "N/A",
+  "COMPTESOURCE": "WF-001 à WF-005, SHP-ADMIN000 à SHP-ADMIN002",
+  "DATETRANSACTION": "",
+  "NUMEROCARTE": "N/A",
+  "MONTANT": "100",
+  "MONTANTCONVERTI": "",
+  "DEVISE": "USD",
+  "EXTOURNE": false,
+  "GERANTAGENCE": "Joel Syasi",
+  "MOTIF": "Documentation et justification de l’usage des comptes techniques",
+  "DESCRIPTION": "Le mot de passe est figé afin de faciliter les tests fonctionnels et techniques. Les comptes SHP-ADMIN000 à SHP-ADMIN002 servent pour l’accès administratif aux serveurs SharePoint on-premise 2013 et 2019, nécessaires aux configurations techniques.",
+  "AVISMOTIVE": "Ils ne sont pas utilisés dans des chaînes de connexion de production et sont gérés conformément aux politiques de sécurité."
+}
