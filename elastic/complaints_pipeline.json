@@ -1,0 +1,9 @@
+{
+  "description": "Normalize complaint fields and stamp server ingest time",
+  "processors": [
+    { "set": { "field": "status", "value": "new", "override": false } },
+    { "lowercase": { "field": "product", "ignore_missing": true } },
+    { "lowercase": { "field": "complaint_type", "ignore_missing": true } },
+    { "set": { "field": "ingested_at", "value": "{{_ingest.timestamp}}" } }
+  ]
+}

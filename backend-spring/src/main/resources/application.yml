@@ -1,0 +1,33 @@
+server:
+  port: ${PORT:8080}
+
+app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+
+elasticsearch:
+  url: ${ELASTICSEARCH_URL:http://localhost:9200}
+  index: ${ELASTICSEARCH_INDEX:reclamations}
+  username: ${ELASTICSEARCH_USERNAME:}
+  password: ${ELASTICSEARCH_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+powerautomate:
+  url: ${POWER_AUTOMATE_URL:}
+  apiKeyHeaderName: ${POWER_AUTOMATE_APIKEY_HEADER_NAME:}
+  apiKey: ${POWER_AUTOMATE_APIKEY:}
+
+accounts:
+  auth:
+    tokenUrl: ${ACCOUNTS_TOKEN_URL:}
+    clientId: ${ACCOUNTS_CLIENT_ID:}
+    clientSecret: ${ACCOUNTS_CLIENT_SECRET:}
+    scope: ${ACCOUNTS_SCOPE:}
+  api:
+    url: ${ACCOUNTS_API_URL:}
+    method: ${ACCOUNTS_METHOD:POST}

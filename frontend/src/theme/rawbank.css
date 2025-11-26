@@ -1,0 +1,38 @@
+/* Thème Rawbank — palette fournie
+   Gold: #fed061, Orange: #ee7444, Black: #000000, Grey: #a6a6a6, White: #ffffff
+*/
+:root {
+  /* Couleurs principales */
+  --text: #000000;        /* Noir */
+  --muted: #a6a6a6;       /* Gris */
+  --primary: #fed061;     /* Gold light */
+  --primary-600: #ee7444; /* Orange (accent/hover) */
+  --ring: rgba(254, 208, 97, 0.35); /* Halo gold */
+
+  /* Surfaces */
+  --bg: linear-gradient(120deg, #ffffff 0%, #ffffff 100%);
+  --card: #ffffff;
+
+  /* États (conserve les teintes neutres) */
+  --success-bg: #e8f7ef;
+  --success-border: #c8efda;
+  --error-bg: #fdecec;
+  --error-border: #f8d0d0;
+}
+
+/* Badge marque: gold -> orange, ombre chaude */
+.brand-badge {
+  background: radial-gradient(circle at 30% 30%, #fed061, #ee7444);
+  box-shadow: 0 10px 28px rgba(238, 116, 68, 0.35);
+}
+
+/* Bouton principal: dégradé gold -> orange + hover chaud */
+.btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+}
+.btn:hover { box-shadow: 0 8px 18px rgba(238, 116, 68, 0.32); }
+
+/* Anneau de focus aux couleurs de la palette */
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 4px var(--ring);
+}

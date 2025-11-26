@@ -1,0 +1,27 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "default_pipeline": "complaints_ingest_pipeline"
+    }
+  },
+  "mappings": {
+    "dynamic": "true",
+    "properties": {
+      "tracking_id": { "type": "keyword" },
+      "name": { "type": "text" },
+      "email": { "type": "keyword" },
+      "phone": { "type": "keyword" },
+      "product": { "type": "keyword" },
+      "complaint_type": { "type": "keyword" },
+      "description": { "type": "text" },
+      "user_agent": { "type": "text" },
+      "device": { "type": "keyword" },
+      "submitted_at": { "type": "date" },
+      "submitted_at_local": { "type": "date", "format": "strict_date_optional_time||dd/MM/yyyy HH:mm:ss" },
+      "ingested_at": { "type": "date" },
+      "status": { "type": "keyword" }
+    }
+  }
+}
