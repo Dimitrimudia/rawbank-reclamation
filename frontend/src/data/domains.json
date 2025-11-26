@@ -1,0 +1,82 @@
+[
+  {"id":1, "name":"Geste Commercial", "types":["Geste Commercial"]},
+  {"id":2, "name":"Alert Banking", "types":[
+    "Non-réception des alertes SMS",
+    "Non-réception des alertes Email"
+  ]},
+  {"id":3, "name":"Juridique", "types":[
+    "Action initiée par un avocat",
+    "Problèmes liés à la succession"
+  ]},
+  {"id":4, "name":"Paie Fonctionnaires", "types":[
+    "Compte non crédité"
+  ]},
+  {"id":5, "name":"Mauvaise prise en charge", "types":[
+    "Mauvaise accueil en Agence",
+    "Requête introduite non traité et aucune suite reservée",
+    "Mauvaise attitude ou comportement d'un agent envers le client"
+  ]},
+  {"id":6, "name":"Illico Cash", "types":[
+    "Achat Unité non abouti",
+    "Appro Illico échoué",
+    "Carte virtuelle",
+    "Envoi d’argent échoué",
+    "Réabonnement TV non abouti",
+    "Retrait Agent Bancaire/non abouti",
+    "Retrait fictif Illico / Cash out échoué",
+    "Transfert International non abouti",
+    "Versement non abouti",
+    "Versement Agent Bancaire/non abouti",
+    "Device Binding"
+  ]},
+  {"id":7, "name":"Monetique", "types":[
+    "Retrait fictif",
+    "Transaction frauduleuse",
+    "Retrait fictif MasterCard",
+    "Retrait fictif TPE",
+    "Retrait fictif autre banque",
+    "Transaction en ligne échouée",
+    "Crédit marchand non reçu",
+    "Dépôt ATM",
+    "Pin non reçu",
+    "3D Secure",
+    "Paramétrage carte",
+    "Carte ne fonctionne pas",
+    "Livraison tardive"
+  ]},
+  {"id":8, "name":"Crédit", "types":[
+    "Garantie bancaire",
+    "Escompte facture",
+    "Intérêts et agios",
+    "Commission crédits",
+    "Pénalités de retard",
+    "Frais de dossiers mal perçu"
+  ]},
+  {"id":9, "name":"Réclamations sensibles", "types":[
+    "Corruption",
+    "Détournement",
+    "Fraude interne ou externe"
+  ]},
+  {"id":10, "name":"Opérations Centralisées", "types":[
+    "Virement non-abouti",
+    "Transfert local non-abouti",
+    "Transfert international non-abouti",
+    "Opération en attente de validation",
+    "Rapatriement",
+    "MoneyGram",
+    "MAD",
+    "Paiement facture",
+    "Commission de transfert / virement mal perçu"
+  ]},
+  {"id":11, "name":"Surfacturation diverses", "types":[
+    "Facturation indue alert banking",
+    "Facturation indue email alert",
+    "Commission MoneyGram mal perçu",
+    "Frais de carte mal perçu",
+    "Commission de retrait caisse",
+    "Frais de Chequier mal perçu",
+    "Frais package mal perçu",
+    "Frais de recalcul pin mal perçu",
+    "Autres"
+  ]}
+]

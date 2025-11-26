@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import useSubmitComplaint from '../hooks/useSubmitComplaint.js'
 import useAccounts from '../hooks/useAccounts.js'
+import domains from '../data/domains.json'
 
 const numberOrEmpty = z.preprocess((val) => {
   if (val === '' || val === undefined || val === null) return undefined
@@ -45,11 +46,22 @@ const schema = z.object({
   if (data.domaine === 'Monetique' && !data.numeroCarte) {
     ctx.addIssue({ code: 'custom', path: ['numeroCarte'], message: 'Numéro carte requis pour domaine Monétique' })
   }
+  // Cohérence domaine/type: si un domaine est choisi, le type doit appartenir à ses types
+  if (data.domaine) {
+    const d = domains.find((x) => x.name === data.domaine)
+    if (d) {
+      const allowed = new Set(d.types)
+      if (data.typeReclamation && !allowed.has(data.typeReclamation)) {
+        ctx.addIssue({ code: 'custom', path: ['typeReclamation'], message: 'Type non valide pour ce domaine' })
+      }
+      if (!data.typeReclamation) {
+        ctx.addIssue({ code: 'custom', path: ['typeReclamation'], message: 'Type requis pour ce domaine' })
+      }
+    }
+  }
 })
 
-const types = ['Fraude', 'Chargeback', 'Service', 'Technique']
 const currencies = ['USD', 'EUR', 'CDF']
-const domainOptions = ['Monetique', 'Cartes', 'Comptes', 'Digital', 'Fraude', 'Transfert', 'Change', 'Support']
 // const channels = ['RAWBOT', 'Agence', 'App', 'Web'] // non utilisé
 
 function detectDevice(ua) {
@@ -75,7 +87,7 @@ export default function ComplaintForm({ onSuccess }) {
     return Number.isFinite(n) ? n : undefined
   }
   const [form, setForm] = useState({
-    typeReclamation: types[0],
+    typeReclamation: '',
     description: '',
     // Champs additionnels
     domaine: '',
@@ -148,7 +160,7 @@ export default function ComplaintForm({ onSuccess }) {
   }
   const handleClear = () => {
     setForm({
-      typeReclamation: types[0],
+      typeReclamation: '',
       description: '',
       domaine: '',
       // canalUtilise retiré
@@ -214,7 +226,7 @@ export default function ComplaintForm({ onSuccess }) {
     if (res?.ok) {
       onSuccess?.({ trackingId })
       setForm({
-        typeReclamation: types[0],
+        typeReclamation: '',
         description: '',
         domaine: '',
         // canalUtilise retiré
@@ -280,7 +292,8 @@ export default function ComplaintForm({ onSuccess }) {
                 <div className="control">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v2H4V4Zm0 6h16v2H4v-2Zm0 6h10v2H4v-2Z" fill="currentColor"/></svg>
                   <select name="domaine" id="domaine" value={form.domaine} onChange={handleChange}>
-                    {domainOptions.map((d) => (<option key={d} value={d}>{d}</option>))}
+                    <option value="">Sélectionnez un domaine</option>
+                    {domains.map((d) => (<option key={d.id} value={d.name}>{d.name}</option>))}
                   </select>
                   <span className="floating-label" id="label-domaine">Domaine</span>
                 </div>
@@ -290,7 +303,11 @@ export default function ComplaintForm({ onSuccess }) {
                 <div className="control">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z" fill="currentColor"/></svg>
                   <select name="typeReclamation" value={form.typeReclamation} onChange={handleChange} aria-required="true" className={errors.typeReclamation ? 'invalid shake' : ''}>
-                    {types.map((t) => (<option key={t} value={t}>{t}</option>))}
+                    <option value="">Sélectionnez un type</option>
+                    {domains
+                      .filter((d) => !form.domaine || d.name === form.domaine)
+                      .flatMap((d) => d.types)
+                      .map((t) => (<option key={t} value={t}>{t}</option>))}
                   </select>
                   <span className="floating-label" id="label-typeReclamation">Type de réclamation*</span>
                 </div>
