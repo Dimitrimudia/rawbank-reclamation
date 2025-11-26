@@ -1,0 +1,9 @@
+https://test.rawapigw.rawbank.cd/sharepoint-services/authenticate
+{
+  "username": "YXBwbW9iaWxl",
+  "password": "cGFzc3dvcmRUZXN0"
+}
+
+{
+    "token": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhcHBtb2JpbGUiLCJleHAiOjE3NjQxNjUxNTQsImlhdCI6MTc2NDE2NDk3NH0.bPH5yJyzaPAI0Wgs0EglmcIUSM4IZE8hH-E8pcejcVhkuaKDxFJ6dCwnSUEMHxf-f2ITI7O2mktAs1AOD6SIyg"
+}
