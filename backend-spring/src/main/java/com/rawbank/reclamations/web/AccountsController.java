@@ -25,6 +25,12 @@ public class AccountsController {
 
     @GetMapping
     public Mono<ResponseEntity<Map<String, Object>>> getAccounts(@RequestParam("clientId") String clientId) {
+        if (clientId == null || !clientId.matches("^\\d{8}$")) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("ok", false);
+            err.put("error", "clientId invalide: doit contenir exactement 8 chiffres");
+            return Mono.just(ResponseEntity.badRequest().body(err));
+        }
         return accountsService.getAccounts(clientId)
                 .map(list -> {
                     Map<String, Object> body = new HashMap<>();
@@ -44,11 +50,40 @@ public class AccountsController {
     public Mono<ResponseEntity<Map<String, Object>>> postAccounts(@RequestBody Map<String, Object> bodyIn) {
         Object raw = bodyIn == null ? null : bodyIn.get("clientId");
         String clientId = raw == null ? null : String.valueOf(raw);
+        if (clientId == null || !clientId.matches("^\\d{8}$")) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("ok", false);
+            err.put("error", "clientId invalide: doit contenir exactement 8 chiffres");
+            return Mono.just(ResponseEntity.badRequest().body(err));
+        }
         return accountsService.getAccounts(clientId)
                 .map(list -> {
                     Map<String, Object> body = new HashMap<>();
                     body.put("ok", true);
                     body.put("accounts", list);
+                    return ResponseEntity.ok(body);
+                })
+                .onErrorResume(ex -> {
+                    Map<String, Object> err = new HashMap<>();
+                    err.put("ok", false);
+                    err.put("error", ex.getMessage());
+                    return Mono.just(ResponseEntity.badRequest().body(err));
+                });
+    }
+
+    @GetMapping("/details")
+    public Mono<ResponseEntity<Map<String, Object>>> getAccountDetails(@RequestParam("clientId") String clientId) {
+        if (clientId == null || !clientId.matches("^\\d{8}$")) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("ok", false);
+            err.put("error", "clientId invalide: doit contenir exactement 8 chiffres");
+            return Mono.just(ResponseEntity.badRequest().body(err));
+        }
+        return accountsService.getAccounts(clientId)
+                .map(list -> {
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("ok", true);
+                    body.put("details", list);
                     return ResponseEntity.ok(body);
                 })
                 .onErrorResume(ex -> {
