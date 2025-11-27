@@ -14,14 +14,18 @@ export async function submitComplaint(data) {
 }
 
 export async function getAccounts(clientId) {
-  const url = `/api/accounts/details?clientId=${encodeURIComponent(clientId)}`
-  const res = await fetch(url, { method: 'GET' })
+  const url = `/api/accounts`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId })
+  })
   if (!res.ok) {
     let message = 'Erreur API comptes'
     try { const j = await res.json(); message = j?.error || message } catch {}
     return { ok: false, error: message }
   }
   const json = await res.json()
-  if (json?.ok) return { ok: true, accounts: (json.details || json.accounts || []) }
+  if (json?.ok) return { ok: true, accounts: (json.accounts || []) }
   return { ok: false, error: json?.error || 'Réponse invalide' }
 }

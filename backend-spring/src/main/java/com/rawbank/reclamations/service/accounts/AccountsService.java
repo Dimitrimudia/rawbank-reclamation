@@ -1,72 +1,88 @@
 package com.rawbank.reclamations.service.accounts;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import io.github.cdimascio.dotenv.Dotenv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class AccountsService {
 
     private final WebClient webClient;
-    private final AccountsAuthService authService;
-    private final String accountsUrl;
-    private final String httpMethod;
+    private final String accountDetailsUrl;
+    private final SharepointAuthService sharepointAuthService;
+    private static final Logger log = LoggerFactory.getLogger(AccountsService.class);
 
-    public AccountsService(AccountsAuthService authService,
-                           @Value("${accounts.api.url:}") String accountsUrl,
-                           @Value("${accounts.api.method:POST}") String httpMethod) {
+    public AccountsService(SharepointAuthService sharepointAuthService,
+                           @Value("${accounts.details.url:}") String accountDetailsUrl) {
         this.webClient = WebClient.builder().build();
-        this.authService = authService;
-        this.accountsUrl = accountsUrl;
-        this.httpMethod = (httpMethod == null ? "POST" : httpMethod).trim().toUpperCase();
+        this.sharepointAuthService = sharepointAuthService;
+        // Charger depuis .env si non fourni par properties/env
+        Dotenv dotenv = Dotenv.configure()
+                .directory("../../")
+                .ignoreIfMissing()
+                .load();
+        String envUrl = dotenv.get("SHAREPOINT_ACCOUNT_DETAILS_URL");
+        this.accountDetailsUrl = StringUtils.hasText(accountDetailsUrl) ? accountDetailsUrl : envUrl;
     }
 
-    public Mono<List<Map<String, Object>>> getAccounts(String clientId) {
-        if (!StringUtils.hasText(accountsUrl)) {
-            return Mono.error(new IllegalStateException("Accounts API non configurée"));
+    /**
+     * Appelle l'API externe getAccountDetail et retourne une liste formatée
+     * agencyCode-accountNumber-suffix pour chaque compte.
+     */
+    public Mono<List<String>> getAccounts(String clientId) {
+        if (!StringUtils.hasText(accountDetailsUrl)) {
+            return Mono.error(new IllegalStateException("URL détails comptes non configurée"));
         }
-        return authService.getAccessToken()
-                .flatMap(token -> {
-                    if ("POST".equals(httpMethod)) {
-                        return webClient.post()
-                                .uri(accountsUrl)
-                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .body(BodyInserters.fromValue(Map.of("clientId", clientId)))
-                            .retrieve()
-                            .onStatus(HttpStatusCode::isError, resp ->
-                                resp.bodyToMono(String.class)
-                                    .defaultIfEmpty("")
-                                    .flatMap(body -> Mono.error(new IllegalStateException(
-                                        "Erreur Accounts API (" + resp.statusCode().value() + "): " + body))))
-                            .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
-                                .collectList();
-                    } else {
-                        return webClient.get()
-                                .uri(uriBuilder -> uriBuilder
-                                        .path(accountsUrl)
-                                        .queryParam("clientId", clientId)
-                                        .build())
-                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                            .retrieve()
-                            .onStatus(HttpStatusCode::isError, resp ->
-                                resp.bodyToMono(String.class)
-                                    .defaultIfEmpty("")
-                                    .flatMap(body -> Mono.error(new IllegalStateException(
-                                        "Erreur Accounts API (" + resp.statusCode().value() + "): " + body))))
-                            .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
-                                .collectList();
+        if (!StringUtils.hasText(clientId) || !clientId.matches("^\\d{8}$")) {
+            return Mono.error(new IllegalArgumentException("clientId invalide (8 chiffres requis)"));
+        }
+        log.debug("Appel getAccountDetail pour clientId={}", clientId);
+        return sharepointAuthService.getToken()
+            .flatMap(token -> webClient.post()
+                .uri(accountDetailsUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .headers(h -> h.setBearerAuth(token))
+                .bodyValue(Map.of("customerCode", clientId))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, resp -> resp.bodyToMono(String.class)
+                    .defaultIfEmpty("")
+                    .flatMap(body -> Mono.error(new IllegalStateException("Erreur API détails (" + resp.statusCode().value() + "): " + body))))
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {}))
+                .map(root -> {
+                    log.debug("Réponse details reçue: {}", root != null);
+                    if (root == null) return Collections.emptyList();
+                    Object detailObj = root.get("cutomerDetail"); // orthographe fournie dans le payload
+                    if (!(detailObj instanceof Map)) return Collections.emptyList();
+                    Map<?, ?> detail = (Map<?, ?>) detailObj;
+                    Object accountListObj = detail.get("accountList");
+                    if (!(accountListObj instanceof List)) return Collections.emptyList();
+                    List<?> rawList = (List<?>) accountListObj;
+                    List<String> formatted = new ArrayList<>();
+                    for (Object o : rawList) {
+                        if (o instanceof Map<?, ?> acc) {
+                            Object agencyCode = acc.get("agencyCode");
+                            Object accountNumber = acc.get("accountNumber");
+                            Object suffix = acc.get("suffix");
+                            if (agencyCode != null && accountNumber != null && suffix != null) {
+                                formatted.add(agencyCode + "-" + accountNumber + "-" + suffix);
+                            }
+                        }
                     }
+                    log.info("Comptes formatés: {} items", formatted.size());
+                    return formatted;
                 });
     }
 }

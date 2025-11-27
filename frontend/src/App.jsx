@@ -40,7 +40,7 @@ export default function App() {
       <ComplaintForm onSuccess={setSubmitted} />
 
       <footer className="footer">
-        <small>&copy; {new Date().getFullYear()} Rawbank</small>
+        <small>&copy; {new Date().getFullYear()} Rawbank SA</small>
       </footer>
     </div>
   )

@@ -19,24 +19,34 @@ export default function useAccounts(clientId) {
     setLoading(true)
     setError(null)
 
-    const t = setTimeout(async () => {
+    const attemptFetch = async (tries = 3, delayMs = 500) => {
       try {
         const res = await getAccounts(digits)
         if (!active) return
         if (res.ok) {
           setAccounts(res.accounts || [])
-        } else {
-          setError(res.error || 'Erreur lors du chargement des comptes')
-          setAccounts([])
+          setError(null)
+          setLoading(false)
+          return
         }
+        // Erreur fonctionnelle: ne pas relancer, afficher l'erreur
+        setAccounts([])
+        setError(res.error || 'Erreur lors du chargement des comptes')
+        setLoading(false)
       } catch (e) {
         if (!active) return
-        setError('Échec réseau ou serveur')
-        setAccounts([])
-      } finally {
-        if (active) setLoading(false)
+        if (tries > 1) {
+          // Relance automatique en cas de problème de connexion (exponential backoff)
+          setTimeout(() => attemptFetch(tries - 1, Math.min(delayMs * 3, 3000)), delayMs)
+        } else {
+          setError('Échec réseau ou serveur')
+          setAccounts([])
+          setLoading(false)
+        }
       }
-    }, 300) // debounce court
+    }
+
+    const t = setTimeout(() => attemptFetch(), 300) // debounce court
 
     return () => { active = false; clearTimeout(t) }
   }, [clientId])

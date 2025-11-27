@@ -71,6 +71,7 @@ function detectDevice(ua) {
 export default function ComplaintForm({ onSuccess }) {
   const { submit, loading, error } = useSubmitComplaint()
   const [apiError, setApiError] = useState(null)
+  const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
   useEffect(() => { setApiError(error || null) }, [error])
   useEffect(() => {
     if (!apiError) return
@@ -147,6 +148,8 @@ export default function ComplaintForm({ onSuccess }) {
       v = value
     }
     setForm((f) => ({ ...f, [name]: v }))
+    // Nettoyage du toast si interaction
+    if (toast) setToast(null)
   }
   const handleBlur = (e) => {
     const { name } = e.target
@@ -246,6 +249,24 @@ export default function ComplaintForm({ onSuccess }) {
       })
     }
   }
+
+  // Affichage toast sur récupération des comptes (via hook useAccounts)
+  useEffect(() => {
+    if (accountsError) {
+      setToast({ type: 'error', message: accountsError })
+      return
+    }
+    if (Array.isArray(accounts)) {
+      setToast({ type: 'success', message: `Comptes récupérés: ${accounts.length}` })
+    }
+  }, [accounts, accountsError])
+
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [toast])
 
   return (
     <>
@@ -373,10 +394,9 @@ export default function ComplaintForm({ onSuccess }) {
                       <span className="floating-label" id="label-compteSource">Compte source*</span>
                     </div>
                     {errors.compteSource && <span className="error" role="alert">{errors.compteSource}</span>}
-                    {!errors.compteSource && (
-                      <small className="helper">
-                        {loadingAccounts ? 'Chargement des comptes…' : accounts && accounts.length > 0 ? 'Choisissez un compte' : 'Numéro de compte/IBAN interne'}
-                      </small>
+                    {/* Indication non bloquante quand la liste est vide */}
+                    {!loadingAccounts && Array.isArray(accounts) && accounts.length === 0 && form.numeroClient.replace(/\D/g,'').length === 8 && (
+                      <small className="helper">Aucun compte pour ce client</small>
                     )}
                     {!loadingAccounts && accounts && accounts.length > 6 && (
                       <div className="field" style={{ marginTop: '0.5rem' }}>
@@ -389,9 +409,7 @@ export default function ComplaintForm({ onSuccess }) {
                         />
                       </div>
                     )}
-                    {accountsError && !errors.compteSource && (
-                      <small className="error" role="alert">{accountsError}</small>
-                    )}
+                    {/* Message d'erreur détaillé retiré ici; un toast global est utilisé */}
                   </div>
                 </>
               )}
@@ -403,20 +421,17 @@ export default function ComplaintForm({ onSuccess }) {
 
         {/* Champ canal retiré */}
 
-        
-
         <div className="field floating">
           <div className="control">
             <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
-            <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " />
+            <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
             <span className="floating-label" id="label-numeroClient">Numéro client</span>
           </div>
         </div>
-
         <div className="field floating">
           <div className="control">
             <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
-            <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " />
+            <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
             <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
           </div>
         </div>
@@ -485,6 +500,9 @@ export default function ComplaintForm({ onSuccess }) {
         <button type="button" className="btn btn-secondary" onClick={handleClear} disabled={loading}>Effacer</button>
       </div>
       </form>
+      {toast && (
+        <div className={`toast ${toast.type}`} role="status" aria-live="polite">{toast.message}</div>
+      )}
     </>
   )
 }
