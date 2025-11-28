@@ -85,4 +85,40 @@ public class AccountsService {
                     return formatted;
                 });
     }
+
+    /**
+     * Retourne la section de détail client telle que renvoyée par l'API externe.
+     * Permet d'enrichir le payload de réclamation côté backend (nom client, agence, etc.).
+     */
+    public Mono<Map<String, Object>> getCustomerDetail(String clientId) {
+        if (!StringUtils.hasText(accountDetailsUrl)) {
+            return Mono.error(new IllegalStateException("URL détails comptes non configurée"));
+        }
+        if (!StringUtils.hasText(clientId) || !clientId.matches("^\\d{8}$")) {
+            return Mono.error(new IllegalArgumentException("clientId invalide (8 chiffres requis)"));
+        }
+        log.debug("Appel getAccountDetail (detail) pour clientId={}", clientId);
+        return sharepointAuthService.getToken()
+            .flatMap(token -> webClient.post()
+                .uri(accountDetailsUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .headers(h -> h.setBearerAuth(token))
+                .bodyValue(Map.of("customerCode", clientId))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, resp -> resp.bodyToMono(String.class)
+                    .defaultIfEmpty("")
+                    .flatMap(body -> Mono.error(new IllegalStateException("Erreur API détails (" + resp.statusCode().value() + "): " + body))))
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {}))
+            .map(root -> {
+                Object detailObj = root == null ? null : root.get("cutomerDetail");
+                if (!(detailObj instanceof Map)) {
+                    log.warn("Détail client absent ou invalide dans la réponse");
+                    return Collections.<String, Object>emptyMap();
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> detail = (Map<String, Object>) detailObj;
+                log.info("Détail client récupéré (clés={})", detail.keySet());
+                return detail;
+            });
+    }
 }

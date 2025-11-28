@@ -122,6 +122,8 @@ export default function ComplaintForm({ onSuccess }) {
 
   const userAgent = useMemo(() => navigator.userAgent, [])
   const device = useMemo(() => detectDevice(navigator.userAgent), [])
+  const isCompteSourceRequired = form.extourne === true
+  const isCompteSourceInvalid = isCompteSourceRequired && !String(form.compteSource || '').trim()
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -380,7 +382,14 @@ export default function ComplaintForm({ onSuccess }) {
                           <option>Chargement…</option>
                         </select>
                       ) : accounts && accounts.length > 0 ? (
-                        <select name="compteSource" id="compteSource" value={form.compteSource} onChange={handleChange}>
+                        <select
+                          name="compteSource"
+                          id="compteSource"
+                          value={form.compteSource}
+                          onChange={handleChange}
+                          className={isCompteSourceInvalid ? 'invalid' : ''}
+                          aria-invalid={isCompteSourceInvalid ? 'true' : 'false'}
+                        >
                           <option value="">Sélectionnez un compte</option>
                           {filteredAccounts.map((acc, idx) => {
                             const id = acc.id || acc.number || acc.iban || acc.accountNumber || String(idx)
@@ -389,7 +398,15 @@ export default function ComplaintForm({ onSuccess }) {
                           })}
                         </select>
                       ) : (
-                        <input name="compteSource" id="compteSource" value={form.compteSource} onChange={handleChange} placeholder=" " />
+                        <input
+                          name="compteSource"
+                          id="compteSource"
+                          value={form.compteSource}
+                          onChange={handleChange}
+                          placeholder=" "
+                          className={isCompteSourceInvalid ? 'invalid' : ''}
+                          aria-invalid={isCompteSourceInvalid ? 'true' : 'false'}
+                        />
                       )}
                       <span className="floating-label" id="label-compteSource">Compte source*</span>
                     </div>
