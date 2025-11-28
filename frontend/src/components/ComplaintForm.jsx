@@ -61,7 +61,7 @@ const schema = z.object({
   }
 })
 
-const currencies = ['USD', 'EUR', 'CDF']
+const currencies = ['USD', 'EUR', 'CDF', 'GBP']
 // const channels = ['RAWBOT', 'Agence', 'App', 'Web'] // non utilisé
 
 function detectDevice(ua) {
