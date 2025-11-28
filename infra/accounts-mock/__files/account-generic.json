@@ -1,0 +1,7 @@
+{
+  "accountId": "${request.pathSegments.[2]}",
+  "agencyCode": "AG001",
+  "currencyCode": 840,
+  "customerName": "John Doe",
+  "iban": "CD00RAWB0000000000000000"
+}

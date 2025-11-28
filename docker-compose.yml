@@ -1,0 +1,95 @@
+version: "3.9"
+
+services:
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    ports:
+      - "9092:9092"    # CLIENT (SASL_PLAINTEXT par défaut)
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=INTERNAL
+      - KAFKA_CFG_LISTENERS=INTERNAL://:9093,CLIENT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9093,CLIENT://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,CLIENT:${KAFKA_CLIENT_SECURITY_PROTOCOL:-SASL_PLAINTEXT}
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=SCRAM-SHA-512
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=SCRAM-SHA-512
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=kafka.security.authorizer.AclAuthorizer
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_CLIENT_USERS=${KAFKA_USERNAME:-app}
+      - KAFKA_CLIENT_PASSWORDS=${KAFKA_PASSWORD:-app-secret}
+      - ALLOW_PLAINTEXT_LISTENER=no
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ./infra/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+
+  es_setup:
+    image: curlimages/curl:8.10.1
+    container_name: es_setup
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-kbn-secret}
+    entrypoint: ["sh", "-c"]
+    command: >
+      "until curl -s -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200 >/dev/null; do echo 'waiting for es'; sleep 2; done;
+      echo 'setting kibana_system password';
+      curl -s -u elastic:${ELASTIC_PASSWORD} -H 'Content-Type: application/json' \
+        -X POST http://elasticsearch:9200/_security/user/kibana_system/_password \
+        -d '{"password":"'"${KIBANA_SYSTEM_PASSWORD}"'"}';
+      echo 'done'"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+      - es_setup
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-kbn-secret}
+      - SERVER_PUBLICBASEURL=http://localhost:5601
+    ports:
+      - "5601:5601"
+    volumes:
+      - kibana_data:/usr/share/kibana/data
+      - ./infra/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+
+  accounts-mock:
+    image: wiremock/wiremock:3.9.1
+    container_name: accounts-mock
+    command: ["--disable-banner", "--verbose"]
+    ports:
+      - "9090:8080"
+    volumes:
+      - ./infra/accounts-mock:/home/wiremock:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/__admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+volumes:
+  kafka_data:
+  es_data:
+  kibana_data:

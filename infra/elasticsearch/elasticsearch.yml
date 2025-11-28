@@ -1,0 +1,12 @@
+cluster.name: docker-es
+node.name: es01
+network.host: 0.0.0.0
+http.port: 9200
+
+# Sécurité activée (auth Basic)
+xpack.security.enabled: true
+# HTTPS désactivé par défaut (peut être réactivé avec l'override es-ssl)
+xpack.security.http.ssl.enabled: false
+
+# Déploiement single-node
+discovery.type: single-node

@@ -1,0 +1,32 @@
+version: "3.9"
+
+# Override enabling HTTPS for Elasticsearch HTTP layer
+services:
+  elasticsearch:
+    environment:
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.keystore.path=/usr/share/elasticsearch/config/certs/http.p12
+      - xpack.security.http.ssl.keystore.password=${ES_HTTP_KEYSTORE_PASSWORD:-changeit}
+      - xpack.security.http.ssl.truststore.path=/usr/share/elasticsearch/config/certs/http.p12
+      - xpack.security.http.ssl.truststore.password=${ES_HTTP_TRUSTSTORE_PASSWORD:-changeit}
+    volumes:
+      - ./certs/elasticsearch:/usr/share/elasticsearch/config/certs:ro
+  kibana:
+    environment:
+      - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-kbn-secret}
+      - SERVER_PUBLICBASEURL=http://localhost:5601
+    depends_on:
+      - elasticsearch
+      - es_setup
+  es_setup:
+    environment:
+      - ELASTICSEARCH_URL=https://elasticsearch:9200
+    command: >
+      "until curl -sk -u elastic:${ELASTIC_PASSWORD} ${ELASTICSEARCH_URL} >/dev/null; do echo 'waiting for es https'; sleep 2; done;
+      echo 'setting kibana_system password (https)';
+      curl -sk -u elastic:${ELASTIC_PASSWORD} -H 'Content-Type: application/json' \
+        -X POST ${ELASTICSEARCH_URL}/_security/user/kibana_system/_password \
+        -d '{"password":"'"${KIBANA_SYSTEM_PASSWORD}"'"}';
+      echo 'done'"
