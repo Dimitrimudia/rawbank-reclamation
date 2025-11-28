@@ -12,16 +12,20 @@ public class ComplaintsService {
 
     private static final Logger log = LoggerFactory.getLogger(ComplaintsService.class);
 
+    private final MotifBccResolver motifBccResolver;
+
     private final EventPublisherService eventPublisherService;
     private final PayloadBuilderService payloadBuilderService;
     private final AccountsService accountsService;
 
     public ComplaintsService(EventPublisherService eventPublisherService,
                              PayloadBuilderService payloadBuilderService,
-                             AccountsService accountsService) {
+                             AccountsService accountsService,
+                             MotifBccResolver motifBccResolver) {
         this.eventPublisherService = eventPublisherService;
         this.payloadBuilderService = payloadBuilderService;
         this.accountsService = accountsService;
+        this.motifBccResolver = motifBccResolver;
     }
 
     /**
@@ -38,17 +42,22 @@ public class ComplaintsService {
         overrides.put("ZONE", "ONLINE");
         overrides.put("DEPARTEMENT", "Direction IT / Développement Applicatif");
         overrides.put("CANALUTILISE", "WEB");
+        overrides.put("GERANTAGENCE", "");
         // DEVISE: provient du formulaire, sera validée/ajustée avec le compte sélectionné plus bas
         if (payload.getDEVISE() != null && !payload.getDEVISE().isBlank()) {
             overrides.put("DEVISE", payload.getDEVISE());
         }
         if (payload.getAWSTemplateFormatVersion() == null) overrides.put("AWSTemplateFormatVersion", "");
-        if (payload.getMOTIFBCC() == null) overrides.put("MOTIFBCC", "Renforcement de la sécurité des identités");
-        if (payload.getAVISMOTIVE() == null) overrides.put("AVISMOTIVE", "Ils ne sont pas utilisés dans des chaînes de connexion de production et sont gérés conformément aux politiques de sécurité.");
-        // GERANTAGENCE côté surcharge (on prend la valeur fournie par le formulaire si présente)
-        if (payload.getGERANTAGENCE() != null && !payload.getGERANTAGENCE().isBlank()) {
-            overrides.put("GERANTAGENCE", payload.getGERANTAGENCE());
+        // MOTIFBCC: toujours dérivé du TYPERECLAMATION via le resolver (repli sur le type si non mappé)
+        String autoMotif = motifBccResolver.resolve(payload.getTYPERECLAMATION());
+        if (autoMotif != null && !autoMotif.isBlank()) {
+            overrides.put("MOTIFBCC", autoMotif);
+        } else if (payload.getTYPERECLAMATION() != null && !payload.getTYPERECLAMATION().isBlank()) {
+            overrides.put("MOTIFBCC", payload.getTYPERECLAMATION());
         }
+
+        if (payload.getAVISMOTIVE() == null) overrides.put("AVISMOTIVE", payload.getMOTIF());
+        
         // MONTANTCONVERTI côté surcharge: priorité au champ fourni, sinon dérivé de MONTANT
         if (payload.getMONTANTCONVERTI() != null && !payload.getMONTANTCONVERTI().isBlank()) {
             overrides.put("MONTANTCONVERTI", payload.getMONTANTCONVERTI());
