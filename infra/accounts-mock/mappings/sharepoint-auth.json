@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/sharepoint-services/authenticate"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "token": "mock-token-abc123" }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/sharepoint-services/api/v1/account/getAccountDetail"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "cutomerDetail": {
+        "customerName": "John Doe",
+        "accountList": [
+          { "agencyCode": "AG001", "accountNumber": "1234567890", "suffix": "01", "currencyCode": 840 },
+          { "agencyCode": "AG002", "accountNumber": "9876543210", "suffix": "00", "currencyCode": 181 }
+        ]
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAccounts } from '../services/api.js'
 
-export default function useAccounts(clientId) {
+export default function useAccounts(clientId, enabled = true) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [accounts, setAccounts] = useState([])
@@ -9,7 +9,7 @@ export default function useAccounts(clientId) {
   useEffect(() => {
     let active = true
     const digits = String(clientId || '').replace(/\D/g, '')
-    if (digits.length !== 8) {
+    if (!enabled || digits.length !== 8) {
       setAccounts([])
       setError(null)
       setLoading(false)
@@ -49,7 +49,7 @@ export default function useAccounts(clientId) {
     const t = setTimeout(() => attemptFetch(), 300) // debounce court
 
     return () => { active = false; clearTimeout(t) }
-  }, [clientId])
+  }, [clientId, enabled])
 
   return { loading, error, accounts }
 }

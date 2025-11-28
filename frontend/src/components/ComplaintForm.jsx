@@ -108,7 +108,7 @@ export default function ComplaintForm({ onSuccess }) {
     
   })
   const [errors, setErrors] = useState({})
-  const { loading: loadingAccounts, error: accountsError, accounts } = useAccounts(form.numeroClient)
+  const { loading: loadingAccounts, error: accountsError, accounts } = useAccounts(form.numeroClient, form.extourne === true)
   const [accountsFilter, setAccountsFilter] = useState('')
   const filteredAccounts = useMemo(() => {
     const q = accountsFilter.trim().toLowerCase()
