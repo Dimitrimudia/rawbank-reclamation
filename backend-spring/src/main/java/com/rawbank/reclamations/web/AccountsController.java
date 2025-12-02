@@ -44,7 +44,35 @@ public class AccountsController {
                     return ResponseEntity.ok(body);
                 })
                 .onErrorResume(ex -> {
-                    log.error("Erreur lors de la récupération des comptes pour {}: {}", clientId, ex.getMessage());
+                    Map<String, Object> err = new HashMap<>();
+                    err.put("ok", false);
+                    err.put("error", ex.getMessage());
+                    return Mono.just(ResponseEntity.badRequest().body(err));
+                });
+    }
+
+    @PostMapping("/by-phone")
+    public Mono<ResponseEntity<Map<String, Object>>> getAccountsByPhone(@RequestBody Map<String, Object> bodyIn) {
+        Object raw = bodyIn == null ? null : bodyIn.get("phone");
+        String phone = raw == null ? null : String.valueOf(raw);
+        String digits = phone == null ? null : phone.replaceAll("\\D", "");
+        log.debug("POST /api/accounts/by-phone phone={}", digits);
+        if (digits == null || !digits.matches("^\\d{10}$")) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("ok", false);
+            err.put("error", "phone invalide: doit contenir exactement 10 chiffres");
+            return Mono.just(ResponseEntity.badRequest().body(err));
+        }
+        return accountsService.getAccountsByPhone(digits)
+                .map(list -> {
+                    log.info("Comptes (par téléphone) récupérés: {} éléments pour {}", list.size(), digits);
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("ok", true);
+                    body.put("accounts", list);
+                    return ResponseEntity.ok(body);
+                })
+                .onErrorResume(ex -> {
+                    log.error("Erreur lors de la récupération des comptes par téléphone pour {}: {}", digits, ex.getMessage());
                     Map<String, Object> err = new HashMap<>();
                     err.put("ok", false);
                     err.put("error", ex.getMessage());

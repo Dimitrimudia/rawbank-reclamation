@@ -87,6 +87,8 @@ export default function ComplaintForm({ onSuccess }) {
   const [contactMode, setContactMode] = useState('numeroClient') // 'numeroClient' | 'telephoneClient'
   const [showValidationSummary, setShowValidationSummary] = useState(false)
   const errorBoxRef = useRef(null)
+  const numeroClientRef = useRef(null)
+  const telephoneClientRef = useRef(null)
   useEffect(() => { setApiError(error || null) }, [error])
   useEffect(() => {
     if (!apiError) return
@@ -123,7 +125,12 @@ export default function ComplaintForm({ onSuccess }) {
     
   })
   const [errors, setErrors] = useState({})
-  const { loading: loadingAccounts, error: accountsError, accounts } = useAccounts(form.numeroClient, form.extourne === true)
+  const { loading: loadingAccounts, error: accountsError, accounts } = useAccounts({
+    mode: contactMode,
+    clientId: form.numeroClient,
+    phone: form.telephoneClient,
+    enabled: form.extourne === true
+  })
   const [accountsFilter, setAccountsFilter] = useState('')
   const filteredAccounts = useMemo(() => {
     const q = accountsFilter.trim().toLowerCase()
@@ -159,6 +166,16 @@ export default function ComplaintForm({ onSuccess }) {
         telephoneClient: value === 'telephoneClient' ? f.telephoneClient : ''
       }))
       if (toast) setToast(null)
+      // Autofocus sur le champ correspondant après rendu
+      requestAnimationFrame(() => {
+        try {
+          if (value === 'numeroClient' && numeroClientRef.current) {
+            numeroClientRef.current.focus()
+          } else if (value === 'telephoneClient' && telephoneClientRef.current) {
+            telephoneClientRef.current.focus()
+          }
+        } catch (_) { /* noop */ }
+      })
       return
     }
     if (type === 'checkbox') {
@@ -405,7 +422,7 @@ export default function ComplaintForm({ onSuccess }) {
                 <div className="field floating">
                   <div className="control">
                     <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
-                    <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
+                    <input ref={numeroClientRef} name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
                     <span className="floating-label" id="label-numeroClient">Numéro client</span>
                   </div>
                 </div>
@@ -413,8 +430,8 @@ export default function ComplaintForm({ onSuccess }) {
                 <div className="field floating">
                   <div className="control">
                     <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
-                    <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
-                    <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
+                    <input ref={telephoneClientRef} name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
+                    <span className="floating-label" id="label-telephoneClient">Téléphone (10 chiffres)</span>
                   </div>
                 </div>
               )}
@@ -428,6 +445,7 @@ export default function ComplaintForm({ onSuccess }) {
                   <input type="date" name="dateTransaction" value={form.dateTransaction} onChange={handleChange} max={todayStr} />
                   <span className="floating-label" id="label-dateTransaction">Date transaction{form.extourne ? '*' : ''}</span>
                 </div>
+                <small className="helper">Maximum aujourd’hui</small>
               </div>
               {form.domaine === 'Monetique' && (
                 <div className="field floating">
@@ -437,6 +455,7 @@ export default function ComplaintForm({ onSuccess }) {
                     <span className="floating-label" id="label-numeroCarte">Numéro carte*</span>
                   </div>
                   {errors.numeroCarte && <span className="error" role="alert">{errors.numeroCarte}</span>}
+                  {!errors.numeroCarte && <small className="helper">16 chiffres — espaces acceptés</small>}
                 </div>
               )}
             </div>
@@ -457,7 +476,7 @@ export default function ComplaintForm({ onSuccess }) {
                 </div>
               </fieldset>
               {form.extourne && (
-                <>
+                <div className="row-4-2-4 full-row">
                   <div className="field floating">
                     <div className="control">
                       <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z" fill="currentColor"/></svg>
@@ -495,11 +514,9 @@ export default function ComplaintForm({ onSuccess }) {
                           aria-invalid={isCompteSourceInvalid ? 'true' : 'false'}
                         >
                           <option value="">Sélectionnez un compte</option>
-                          {filteredAccounts.map((acc, idx) => {
-                            const id = acc.id || acc.number || acc.iban || acc.accountNumber || String(idx)
-                            const label = acc.label || acc.name || acc.number || acc.iban || id
-                            return <option key={id} value={id}>{label}</option>
-                          })}
+                          {filteredAccounts.map((acc) => (
+                            <option key={acc.id} value={acc.id}>{acc.label}</option>
+                          ))}
                         </select>
                       ) : (
                         <input
@@ -516,7 +533,10 @@ export default function ComplaintForm({ onSuccess }) {
                     </div>
                     {errors.compteSource && <span className="error" role="alert">{errors.compteSource}</span>}
                     {/* Indication non bloquante quand la liste est vide */}
-                    {!loadingAccounts && Array.isArray(accounts) && accounts.length === 0 && form.numeroClient.replace(/\D/g,'').length === 8 && (
+                    {!loadingAccounts && Array.isArray(accounts) && accounts.length === 0 && (
+                      (contactMode === 'numeroClient' && form.numeroClient.replace(/\D/g,'').length === 8) ||
+                      (contactMode === 'telephoneClient' && String(form.telephoneClient).replace(/\D/g,'').length === 10)
+                    ) && (
                       <small className="helper">Aucun compte pour ce client</small>
                     )}
                     {!loadingAccounts && accounts && accounts.length > 6 && (
@@ -532,7 +552,7 @@ export default function ComplaintForm({ onSuccess }) {
                     )}
                     {/* Message d'erreur détaillé retiré ici; un toast global est utilisé */}
                   </div>
-                </>
+                </div>
               )}
           </div>
         </div>

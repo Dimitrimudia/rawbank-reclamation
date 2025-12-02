@@ -29,3 +29,20 @@ export async function getAccounts(clientId) {
   if (json?.ok) return { ok: true, accounts: (json.accounts || []) }
   return { ok: false, error: json?.error || 'Réponse invalide' }
 }
+
+export async function getAccountsByPhone(phone) {
+  const url = `/api/accounts/by-phone`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  })
+  if (!res.ok) {
+    let message = 'Erreur API comptes (téléphone)'
+    try { const j = await res.json(); message = j?.error || message } catch {}
+    return { ok: false, error: message }
+  }
+  const json = await res.json()
+  if (json?.ok) return { ok: true, accounts: (json.accounts || []) }
+  return { ok: false, error: json?.error || 'Réponse invalide' }
+}

@@ -1,15 +1,33 @@
 import { useEffect, useState } from 'react'
-import { getAccounts } from '../services/api.js'
+import { getAccounts, getAccountsByPhone } from '../services/api.js'
 
-export default function useAccounts(clientId, enabled = true) {
+// API unifiée: { mode: 'numeroClient' | 'telephoneClient', clientId, phone, enabled }
+export default function useAccounts(params, enabledLegacy) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [accounts, setAccounts] = useState([])
 
   useEffect(() => {
     let active = true
-    const digits = String(clientId || '').replace(/\D/g, '')
-    if (!enabled || digits.length !== 8) {
+    // Compatibilité ancienne signature: useAccounts(clientId, enabled)
+    let mode, clientId, phone, enabled
+    if (typeof params === 'string' || typeof params === 'number') {
+      clientId = String(params || '')
+      mode = 'numeroClient'
+      enabled = enabledLegacy ?? true
+    } else {
+      mode = params?.mode
+      clientId = params?.clientId
+      phone = params?.phone
+      enabled = params?.enabled ?? true
+    }
+
+    const clientDigits = String(clientId || '').replace(/\D/g, '')
+    const phoneDigits = String(phone || '').replace(/\D/g, '')
+
+    const shouldUseClient = mode === 'numeroClient' && clientDigits.length === 8
+    const shouldUsePhone = mode === 'telephoneClient' && phoneDigits.length === 10
+    if (!enabled || (!shouldUseClient && !shouldUsePhone)) {
       setAccounts([])
       setError(null)
       setLoading(false)
@@ -21,10 +39,23 @@ export default function useAccounts(clientId, enabled = true) {
 
     const attemptFetch = async (tries = 3, delayMs = 500) => {
       try {
-        const res = await getAccounts(digits)
+        const res = shouldUseClient
+          ? await getAccounts(clientDigits)
+          : await getAccountsByPhone(phoneDigits)
         if (!active) return
         if (res.ok) {
-          setAccounts(res.accounts || [])
+          // Normaliser en objets { id, label }
+          const list = Array.isArray(res.accounts) ? res.accounts : []
+          const normalized = list.map((v, idx) => {
+            if (v && typeof v === 'object') {
+              const id = v.id || v.number || v.iban || v.accountNumber || String(idx)
+              const label = v.label || v.name || v.number || v.iban || id
+              return { id, label }
+            }
+            const s = String(v ?? '')
+            return { id: s, label: s }
+          })
+          setAccounts(normalized)
           setError(null)
           setLoading(false)
           return
@@ -49,7 +80,7 @@ export default function useAccounts(clientId, enabled = true) {
     const t = setTimeout(() => attemptFetch(), 300) // debounce court
 
     return () => { active = false; clearTimeout(t) }
-  }, [clientId, enabled])
+  }, [params, enabledLegacy])
 
   return { loading, error, accounts }
 }

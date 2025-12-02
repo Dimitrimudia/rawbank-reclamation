@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/sharepoint-services/api/v1/account/getAccountDetailByPhone"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "status": 200,
+      "message": "Détail des comptes du client récupéré avec succès.",
+      "rawComptes": [
+        { "numero": "05101-00431575002-32", "devise": "CDF", "codeDev": "181", "soldeIN": "0", "soldeDE": "0", "type": "020", "intitule": "CLIENT DEMO V/C CDF" },
+        { "numero": "05101-00431575003-29", "devise": "USD", "codeDev": "840", "soldeIN": "0", "soldeDE": "0", "type": "020", "intitule": "CLIENT DEMO V/C USD" },
+        { "numero": "01075-00431575001-91", "devise": "USD", "codeDev": "840", "soldeIN": "0", "soldeDE": "0", "type": "062", "intitule": "CLIENT DEMO V/C FID. USD" }
+      ]
+    }
+  }
+}

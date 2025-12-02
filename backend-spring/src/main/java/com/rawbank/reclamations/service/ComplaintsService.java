@@ -82,9 +82,15 @@ public class ComplaintsService {
         overrides.put("Conditions", new java.util.HashMap<>());
 
         String clientId = payload.getNUMEROCLIENT();
-        Mono<java.util.Map<String, Object>> detailMono = (clientId != null && clientId.matches("^\\d{8}$"))
-                ? accountsService.getCustomerDetail(clientId).onErrorResume(e -> Mono.just(java.util.Map.of()))
-                : Mono.just(java.util.Map.of());
+        String phone = payload.getTELEPHONECLIENT();
+        Mono<java.util.Map<String, Object>> detailMono;
+        if (clientId != null && clientId.matches("^\\d{8}$")) {
+            detailMono = accountsService.getCustomerDetail(clientId).onErrorResume(e -> Mono.just(java.util.Map.of()));
+        } else if (phone != null && phone.replaceAll("\\D", "").matches("^\\d{10}$")) {
+            detailMono = accountsService.getCustomerDetailByPhone(phone).onErrorResume(e -> Mono.just(java.util.Map.of()));
+        } else {
+            detailMono = Mono.just(java.util.Map.of());
+        }
 
         return detailMono.flatMap(detail -> {
             String trackingId = java.util.UUID.randomUUID().toString();
