@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import useSubmitComplaint from '../hooks/useSubmitComplaint.js'
@@ -32,6 +32,15 @@ const schema = z.object({
   motif: z.string().optional().or(z.literal('')),
   extourne: z.boolean().optional(),
 }).superRefine((data, ctx) => {
+  // Interdire une date de transaction future (<= aujourd'hui)
+  if (data.dateTransaction) {
+    const pad = (n) => String(n).padStart(2, '0')
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    if (String(data.dateTransaction) > todayStr) {
+      ctx.addIssue({ code: 'custom', path: ['dateTransaction'], message: 'La date ne peut pas dépasser aujourd’hui' })
+    }
+  }
   if (data.extourne) {
     if (!data.montant || Number.isNaN(data.montant)) {
       ctx.addIssue({ code: 'custom', path: ['montant'], message: 'Montant requis si remboursé' })
@@ -75,6 +84,9 @@ export default function ComplaintForm({ onSuccess }) {
   const { submit, loading, error } = useSubmitComplaint()
   const [apiError, setApiError] = useState(null)
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message: string }
+  const [contactMode, setContactMode] = useState('numeroClient') // 'numeroClient' | 'telephoneClient'
+  const [showValidationSummary, setShowValidationSummary] = useState(false)
+  const errorBoxRef = useRef(null)
   useEffect(() => { setApiError(error || null) }, [error])
   useEffect(() => {
     if (!apiError) return
@@ -125,6 +137,13 @@ export default function ComplaintForm({ onSuccess }) {
 
   const userAgent = useMemo(() => navigator.userAgent, [])
   const device = useMemo(() => detectDevice(navigator.userAgent), [])
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`
+  }, [])
   const isCompteSourceRequired = form.extourne === true
   const isCompteSourceInvalid = isCompteSourceRequired && !String(form.compteSource || '').trim()
 
@@ -132,6 +151,16 @@ export default function ComplaintForm({ onSuccess }) {
     const { name, value, type, checked } = e.target
     let v
     if (apiError) setApiError(null)
+    if (name === 'contactMode') {
+      setContactMode(value)
+      setForm((f) => ({
+        ...f,
+        numeroClient: value === 'numeroClient' ? f.numeroClient : '',
+        telephoneClient: value === 'telephoneClient' ? f.telephoneClient : ''
+      }))
+      if (toast) setToast(null)
+      return
+    }
     if (type === 'checkbox') {
       v = checked
     } else if (type === 'radio' && name === 'extourne') {
@@ -196,9 +225,11 @@ export default function ComplaintForm({ onSuccess }) {
       const fieldErrors = {}
       parse.error.issues.forEach((i) => { fieldErrors[i.path[0]] = i.message })
       setErrors(fieldErrors)
+      setShowValidationSummary(true)
       return
     }
     setErrors({})
+    setShowValidationSummary(false)
 
     const trackingId = uuidv4()
     const now = new Date()
@@ -274,19 +305,42 @@ export default function ComplaintForm({ onSuccess }) {
     }
   }, [toast])
 
+  // Scroll/focus automatique vers le message d'erreur affiché
+  useEffect(() => {
+    if ((apiError || showValidationSummary) && errorBoxRef.current) {
+      // Laisser le DOM peindre avant le scroll/focus
+      requestAnimationFrame(() => {
+        try {
+          errorBoxRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          errorBoxRef.current.focus({ preventScroll: true })
+        } catch (_) { /* noop */ }
+      })
+    }
+  }, [apiError, showValidationSummary])
+
   return (
     <>
-      {apiError && (
-        <div className="error box prominent dismissible" role="alert">
-          <span className="error-text">{apiError}</span>
-          <button
-            type="button"
-            className="error-close"
-            aria-label="Fermer l’alerte"
-            onClick={() => setApiError(null)}
-          >
-            ×
-          </button>
+      {(apiError || showValidationSummary) && (
+        <div
+          ref={errorBoxRef}
+          className="error box prominent dismissible"
+          role="alert"
+          aria-live="assertive"
+          tabIndex={-1}
+        >
+          <span className="error-text">
+            {apiError ? apiError : 'Veuillez corriger les champs en surbrillance.'}
+          </span>
+          {apiError && (
+            <button
+              type="button"
+              className="error-close"
+              aria-label="Fermer l’alerte"
+              onClick={() => setApiError(null)}
+            >
+              ×
+            </button>
+          )}
         </div>
       )}
       <form className="card" onSubmit={handleSubmit} noValidate aria-busy={loading}>
@@ -301,20 +355,10 @@ export default function ComplaintForm({ onSuccess }) {
             </div>
           </div>
         )}
-      <div className="card-header">
-        <div className="card-header-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a5 5 0 0 1 5 5v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v1h6V7a3 3 0 0 0-3-3Z" fill="currentColor"/></svg>
-        </div>
-        <div className="card-header-text">
-          <h2 className="card-title">Soumettre une réclamation</h2>
-          <p className="card-subtitle">Vos informations sont traitées de façon sécurisée.</p>
-        </div>
-      </div>
-
-      <div className="form-layout">
-        <div className="form-main">
-          <h3 className="section-title"><span className="badge">1</span> Détails de la réclamation</h3>
-          <div className="grid" role="group" aria-label="Détails réclamation">
+        <h3 className="section-title"><span className="badge">1</span> Détails de la transaction</h3>
+        <div id="details-section">
+          <div className="grid" role="group" aria-label="Détails de la transaction">
+            <div className="row-4060 full-row">
               <div className="field floating">
                 <div className="control">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v2H4V4Zm0 6h16v2H4v-2Zm0 6h10v2H4v-2Z" fill="currentColor"/></svg>
@@ -325,7 +369,6 @@ export default function ComplaintForm({ onSuccess }) {
                   <span className="floating-label" id="label-domaine">Domaine</span>
                 </div>
               </div>
-
               <div className="field floating">
                 <div className="control">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z" fill="currentColor"/></svg>
@@ -340,32 +383,66 @@ export default function ComplaintForm({ onSuccess }) {
                 </div>
                 {errors.typeReclamation && <span className="error" role="alert">{errors.typeReclamation}</span>}
               </div>
+            </div>
 
-              {/* Champs déplacés ici: Numéro client, Téléphone, Date transaction */}
-              <div className="field floating">
-                <div className="control">
-                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
-                  <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
-                  <span className="floating-label" id="label-numeroClient">Numéro client</span>
+            {/* Ligne 2: choix radio + champ conditionnel avec ratio 40/60 */}
+            <div className="row-4060 row-align-end full-row">
+              <fieldset className="field" aria-label="Choix identifiant client">
+                <legend className="label">Identifiant</legend>
+                <div className="control" role="radiogroup" aria-labelledby="identifiant-label">
+                  <span id="identifiant-label" className="sr-only">Identifiant</span>
+                  <label className={`radio-pill ${contactMode === 'numeroClient' ? 'active' : ''}`}>
+                    <input type="radio" name="contactMode" value="numeroClient" checked={contactMode === 'numeroClient'} onChange={handleChange} />
+                    <span>Numéro client</span>
+                  </label>
+                  <label className={`radio-pill ${contactMode === 'telephoneClient' ? 'active' : ''}`}>
+                    <input type="radio" name="contactMode" value="telephoneClient" checked={contactMode === 'telephoneClient'} onChange={handleChange} />
+                    <span>Téléphone</span>
+                  </label>
                 </div>
-              </div>
-              <div className="field floating">
-                <div className="control">
-                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0  0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
-                  <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
-                  <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
+              </fieldset>
+              {contactMode === 'numeroClient' ? (
+                <div className="field floating">
+                  <div className="control">
+                    <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
+                    <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
+                    <span className="floating-label" id="label-numeroClient">Numéro client</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="field floating">
+                  <div className="control">
+                    <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
+                    <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
+                    <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ligne 3: Date transaction (40%) + Numéro carte (60% si Monétique) */}
+            <div className="row-4060 full-row">
               <div className="field floating">
                 <div className="control">
-                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v12a2 2 0  0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8H5v8h14v-8Z" fill="currentColor"/></svg>
-                  <input type="date" name="dateTransaction" value={form.dateTransaction} onChange={handleChange} />
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8H5v8h14v-8Z" fill="currentColor"/></svg>
+                  <input type="date" name="dateTransaction" value={form.dateTransaction} onChange={handleChange} max={todayStr} />
                   <span className="floating-label" id="label-dateTransaction">Date transaction{form.extourne ? '*' : ''}</span>
                 </div>
               </div>
+              {form.domaine === 'Monetique' && (
+                <div className="field floating">
+                  <div className="control">
+                    <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Zm2 0h16v2H4V7Z" fill="currentColor"/></svg>
+                    <input name="numeroCarte" id="numeroCarte" value={form.numeroCarte} onChange={handleChange} placeholder=" " />
+                    <span className="floating-label" id="label-numeroCarte">Numéro carte*</span>
+                  </div>
+                  {errors.numeroCarte && <span className="error" role="alert">{errors.numeroCarte}</span>}
+                </div>
+              )}
+            </div>
 
               {/* Champ canal retiré */}
-              <fieldset className="field" aria-label="Remboursement">
+              <fieldset className="field full-row" aria-label="Remboursement">
                 <legend className="label">Remboursement</legend>
                 <div className="control" role="radiogroup" aria-labelledby="remboursement-label">
                   <span id="remboursement-label" className="sr-only">Remboursement</span>
@@ -458,23 +535,13 @@ export default function ComplaintForm({ onSuccess }) {
                 </>
               )}
           </div>
+        </div>
 
-          <h3 className="section-title"><span className="badge">2</span> Informations complémentaires</h3>
+        <h3 className="section-title"><span className="badge">2</span> Informations complémentaires</h3>
           <div id="extras-section">
             <div className="grid" role="group" aria-label="Informations complémentaires">
 
         {/* Champ canal retiré */}
-
-        {form.domaine === 'Monetique' && (
-          <div className="field floating">
-            <div className="control">
-              <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Zm2 0h16v2H4V7Z" fill="currentColor"/></svg>
-              <input name="numeroCarte" id="numeroCarte" value={form.numeroCarte} onChange={handleChange} placeholder=" " />
-              <span className="floating-label" id="label-numeroCarte">Numéro carte*</span>
-            </div>
-            {errors.numeroCarte && <span className="error" role="alert">{errors.numeroCarte}</span>}
-          </div>
-        )}
 
         <div className="field floating full-row">
           <div className="control">
@@ -499,8 +566,7 @@ export default function ComplaintForm({ onSuccess }) {
               {errors.description && <span className="error" role="alert">{errors.description}</span>}
             </div>
           </div>
-        </div>
-      </div>
+        
       <p className="note">En soumettant, vous acceptez que vos données soient utilisées pour traiter votre réclamation.</p>
       <div className="btn-row">
         <button className="btn" type="submit" disabled={loading} aria-busy={loading}>
