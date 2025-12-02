@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/submit",
+    "headers": {
+      "X-Force-Error": {
+        "matches": "true"
+      }
+    }
+  },
+  "response": {
+    "status": 500,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "error": "Simulated Power Automate failure" }
+  }
+}

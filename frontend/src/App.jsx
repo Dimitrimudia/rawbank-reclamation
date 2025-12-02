@@ -33,7 +33,7 @@ export default function App() {
             </svg>
             <strong>Merci.</strong> Votre réclamation a été envoyée.
           </p>
-          <div>Numéro de suivi: <code>{submitted.trackingId}</code></div>
+          <div>Numéro de réclamation: <code>{submitted.complaintNumber}</code></div>
         </div>
       )}
 

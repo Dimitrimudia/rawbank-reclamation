@@ -28,17 +28,25 @@ API Comptes (OAuth2 client_credentials):
 
 ## Démarrer en local
 
+Le projet inclut un wrapper Maven — aucune installation préalable de Maven n'est requise.
+
+Wrapper (Linux/macOS):
 ```bash
 cd backend-spring
 ./mvnw spring-boot:run
 ```
 
-Sur Windows:
+Wrapper (Windows):
 ```bat
 mvnw.cmd spring-boot:run
 ```
 
-L'API sera disponible sur `http://localhost:8080` (routes principales ci-dessous).
+Optionnel (si vous avez déjà Maven installé):
+```bash
+mvn spring-boot:run
+```
+
+Le script `mvnw` télécharge Maven (cache dans `.mvn/wrapper/`) si absent, puis exécute la commande. L'API sera disponible sur `http://localhost:8080`.
 
 Routes:
 - `POST /api/complaints` — côté serveur, construit un payload final en fusionnant un JSON par défaut (`default-payload.json`) avec les données entrantes (normalisations de `NUMEROCARTE`, `MONTANT`, etc.), soumet vers Power Automate; indexe ensuite dans Elasticsearch (si configuré). Réponse: `{ ok: true, powerAutomate: {...}, elasticsearch?: {...} }` ou `{ ok: false, error }`.

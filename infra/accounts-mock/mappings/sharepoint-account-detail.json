@@ -6,12 +6,13 @@
   "response": {
     "status": 200,
     "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
     "jsonBody": {
       "cutomerDetail": {
-        "customerName": "John Doe",
+        "customerName": "Client {{#jsonPath request.body '$.customerCode'}}{{.}}{{/jsonPath}}",
         "accountList": [
-          { "agencyCode": "AG001", "accountNumber": "1234567890", "suffix": "01", "currencyCode": 840 },
-          { "agencyCode": "AG002", "accountNumber": "9876543210", "suffix": "00", "currencyCode": 181 }
+          { "agencyCode": "AG001", "accountNumber": "{{randomValue length=10 type='NUMERIC'}}", "suffix": "01", "currencyCode": 840 },
+          { "agencyCode": "AG002", "accountNumber": "{{randomValue length=10 type='NUMERIC'}}", "suffix": "00", "currencyCode": 181 }
         ]
       }
     }

@@ -23,12 +23,15 @@ public class AccountsService {
     private final WebClient webClient;
     private final String accountDetailsUrl;
     private final SharepointAuthService sharepointAuthService;
+    private final boolean forceError;
     private static final Logger log = LoggerFactory.getLogger(AccountsService.class);
 
     public AccountsService(SharepointAuthService sharepointAuthService,
-                           @Value("${accounts.details.url:}") String accountDetailsUrl) {
+                           @Value("${accounts.details.url:}") String accountDetailsUrl,
+                           @Value("${app.test.forceError:false}") boolean forceError) {
         this.webClient = WebClient.builder().build();
         this.sharepointAuthService = sharepointAuthService;
+        this.forceError = forceError;
         // Charger depuis .env si non fourni par properties/env
         Dotenv dotenv = Dotenv.configure()
                 .directory("../../")
@@ -54,7 +57,10 @@ public class AccountsService {
             .flatMap(token -> webClient.post()
                 .uri(accountDetailsUrl)
                 .contentType(MediaType.APPLICATION_JSON)
-                .headers(h -> h.setBearerAuth(token))
+                .headers(h -> {
+                    h.setBearerAuth(token);
+                    if (forceError) h.set("X-Force-Error", "true");
+                })
                 .bodyValue(Map.of("customerCode", clientId))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, resp -> resp.bodyToMono(String.class)
@@ -102,7 +108,10 @@ public class AccountsService {
             .flatMap(token -> webClient.post()
                 .uri(accountDetailsUrl)
                 .contentType(MediaType.APPLICATION_JSON)
-                .headers(h -> h.setBearerAuth(token))
+                .headers(h -> {
+                    h.setBearerAuth(token);
+                    if (forceError) h.set("X-Force-Error", "true");
+                })
                 .bodyValue(Map.of("customerCode", clientId))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, resp -> resp.bodyToMono(String.class)

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import java.util.Map;
 
 @Service
 public class ComplaintsService {
@@ -13,19 +14,25 @@ public class ComplaintsService {
     private static final Logger log = LoggerFactory.getLogger(ComplaintsService.class);
 
     private final MotifBccResolver motifBccResolver;
+    private final PowerAutomateService powerAutomateService;
 
     private final EventPublisherService eventPublisherService;
     private final PayloadBuilderService payloadBuilderService;
     private final AccountsService accountsService;
+    private final SubmissionTrackingService submissionTrackingService;
 
     public ComplaintsService(EventPublisherService eventPublisherService,
                              PayloadBuilderService payloadBuilderService,
                              AccountsService accountsService,
-                             MotifBccResolver motifBccResolver) {
+                             MotifBccResolver motifBccResolver,
+                             SubmissionTrackingService submissionTrackingService,
+                             PowerAutomateService powerAutomateService) {
         this.eventPublisherService = eventPublisherService;
         this.payloadBuilderService = payloadBuilderService;
         this.accountsService = accountsService;
         this.motifBccResolver = motifBccResolver;
+        this.submissionTrackingService = submissionTrackingService;
+        this.powerAutomateService = powerAutomateService;
     }
 
     /**
@@ -33,7 +40,7 @@ public class ComplaintsService {
      * Publie l'événement de réclamation dans Kafka via le publisher.
      * Ne retourne PAS de ResponseEntity, laisse le contrôleur gérer HTTP.
      */
-    public Mono<Void> submit(ComplaintDto payload) {
+    public Mono<String> submit(ComplaintDto payload) {
         log.debug("ComplaintsService.submit: build + enrich + publish");
 
         // Prépare les surcharges serveur
@@ -80,6 +87,7 @@ public class ComplaintsService {
                 : Mono.just(java.util.Map.of());
 
         return detailMono.flatMap(detail -> {
+            String trackingId = java.util.UUID.randomUUID().toString();
             // NOMCLIENT doit provenir strictement de customerName
             Object nomClient = detail.get("customerName");
             if (nomClient instanceof String s && !s.isBlank()) {
@@ -139,8 +147,41 @@ public class ComplaintsService {
             }
             // Ne pas enrichir GERANTAGENCE ni MONTANTCONVERTI depuis l'API externe: gérés côté surcharge ci-dessus
 
+            overrides.put("TRACKINGID", trackingId);
             java.util.Map<String, Object> finalPayload = payloadBuilderService.buildWithOverrides(payload, overrides);
-            return eventPublisherService.publish(finalPayload);
+            // Appel synchrone à Power Automate pour récupérer le numéro immédiatement
+            submissionTrackingService.markPending(trackingId);
+            return powerAutomateService.submit(finalPayload)
+                    .map(resp -> extractComplaintNumber(resp))
+                    .flatMap(number -> {
+                        if (number == null || number.isBlank()) {
+                            return Mono.error(new IllegalStateException("Numéro de réclamation introuvable"));
+                        }
+                        // Enrichir l'événement avec le numéro pour éviter un 2e appel côté consumer
+                        finalPayload.put("complaintNumber", number);
+                        // Marquer complété côté suivi
+                        submissionTrackingService.complete(trackingId, number);
+                        // Publier l'événement métier enrichi (audit, indexation, etc.)
+                        return eventPublisherService.publish(finalPayload).thenReturn(number);
+                    });
         });
+    }
+
+    private String extractComplaintNumber(Map<String, Object> response) {
+        if (response == null) return null;
+        Object v;
+        if ((v = response.get("complaintNumber")) instanceof String s1 && !s1.isBlank()) return s1;
+        if ((v = response.get("numero")) instanceof String s2 && !s2.isBlank()) return s2;
+        if ((v = response.get("NUMERO")) instanceof String s3 && !s3.isBlank()) return s3;
+        if ((v = response.get("reference")) instanceof String s4 && !s4.isBlank()) return s4;
+        if ((v = response.get("ticket")) instanceof String s5 && !s5.isBlank()) return s5;
+        v = response.get("id");
+        if (v instanceof String s && !s.isBlank()) return s;
+        if (v instanceof Number n) return String.valueOf(n);
+        return null;
+    }
+
+    public Mono<SubmissionTrackingService.Status> status(String trackingId) {
+        return submissionTrackingService.get(trackingId);
     }
 }

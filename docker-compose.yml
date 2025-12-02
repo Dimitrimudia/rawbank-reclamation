@@ -2,33 +2,71 @@ version: "3.9"
 
 services:
   kafka:
-    image: bitnami/kafka:3.7
-    container_name: kafka
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: rawbank-kafka
     ports:
-      - "9092:9092"    # CLIENT (SASL_PLAINTEXT par défaut)
+      - "9092:9092" # PLAINTEXT (dev)
+      - "9094:9094" # SASL_SSL (secure)
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=INTERNAL
-      - KAFKA_CFG_LISTENERS=INTERNAL://:9093,CLIENT://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9093,CLIENT://localhost:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,CLIENT:${KAFKA_CLIENT_SECURITY_PROTOCOL:-SASL_PLAINTEXT}
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
-      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=SCRAM-SHA-512
-      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=SCRAM-SHA-512
-      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=kafka.security.authorizer.AclAuthorizer
-      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
-      - KAFKA_CLIENT_USERS=${KAFKA_USERNAME:-app}
-      - KAFKA_CLIENT_PASSWORDS=${KAFKA_PASSWORD:-app-secret}
-      - ALLOW_PLAINTEXT_LISTENER=no
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,SASL_SSL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,SASL_SSL://host.docker.internal:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,SASL_SSL:SASL_SSL,CONTROLLER:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID}
+      - CLUSTER_ID=${KAFKA_CLUSTER_ID}
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
+      - CONFLUENT_METRICS_ENABLE=false
+      # SSL (TLS) keystore/truststore
+      - KAFKA_SSL_KEYSTORE_FILENAME=kafka.keystore.jks
+      - KAFKA_SSL_KEYSTORE_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-changeit}
+      - KAFKA_SSL_KEY_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-changeit}
+      - KAFKA_SSL_TRUSTSTORE_FILENAME=kafka.truststore.jks
+      - KAFKA_SSL_TRUSTSTORE_PASSWORD=${KAFKA_SSL_TRUSTSTORE_PASSWORD:-changeit}
+      # Confluent/Bitnami entrypoints expect credentials files when SSL enabled
+      - KAFKA_SSL_KEY_CREDENTIALS=/etc/kafka/secrets/keystore_creds
+      - KAFKA_SSL_TRUSTSTORE_CREDENTIALS=/etc/kafka/secrets/truststore_creds
+      - KAFKA_SSL_CLIENT_AUTH=none
+      # SASL SCRAM
+      - KAFKA_SASL_ENABLED_MECHANISMS=SCRAM-SHA-512
     volumes:
-      - kafka_data:/bitnami/kafka
+      - kafka_data:/var/lib/kafka/data
+      - ./infra/kafka/ssl:/etc/kafka/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: rawbank-kafka-init
+    depends_on:
+      - kafka
+    entrypoint: ["bash","-lc"]
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER:-kafka:9092}
+      - KAFKA_USER=${KAFKA_USERNAME}
+      - KAFKA_PASSWORD=${KAFKA_PASSWORD}
+      - COMPLAINTS_TOPIC=${COMPLAINTS_TOPIC:-complaints_raw}
+    command: |
+      HOST=$${KAFKA_BROKER%%:*}; PORT=$${KAFKA_BROKER##*:};
+      until (echo > /dev/tcp/$$HOST/$$PORT) >/dev/null 2>&1; do echo 'waiting for kafka'; sleep 2; done;
+      echo 'creating SCRAM user';
+      kafka-configs --bootstrap-server $${KAFKA_BROKER} --alter --add-config "SCRAM-SHA-512=[password=$${KAFKA_PASSWORD}]" --entity-type users --entity-name $${KAFKA_USER} || true;
+      echo 'ensuring topic exists';
+      kafka-topics --bootstrap-server $${KAFKA_BROKER} --create --if-not-exists --topic $${COMPLAINTS_TOPIC} --replication-factor 1 --partitions 3 || true;
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
-    container_name: elasticsearch
+    container_name: rawbank-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
@@ -51,16 +89,16 @@ services:
       - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-kbn-secret}
     entrypoint: ["sh", "-c"]
     command: >
-      "until curl -s -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200 >/dev/null; do echo 'waiting for es'; sleep 2; done;
+      until curl -s -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200 >/dev/null; do echo 'waiting for es'; sleep 2; done;
       echo 'setting kibana_system password';
       curl -s -u elastic:${ELASTIC_PASSWORD} -H 'Content-Type: application/json' \
         -X POST http://elasticsearch:9200/_security/user/kibana_system/_password \
-        -d '{"password":"'"${KIBANA_SYSTEM_PASSWORD}"'"}';
-      echo 'done'"
+        -d '{"password":"'"${KIBANA_SYSTEM_PASSWORD}"'"'}';
+      echo 'done';
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.15.3
-    container_name: kibana
+    container_name: rawbank-kibana
     depends_on:
       - elasticsearch
       - es_setup
@@ -83,6 +121,20 @@ services:
       - "9090:8080"
     volumes:
       - ./infra/accounts-mock:/home/wiremock:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/__admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  powerautomate-mock:
+    image: wiremock/wiremock:3.9.1
+    container_name: powerautomate-mock
+    command: ["--disable-banner", "--verbose", "--global-response-templating"]
+    ports:
+      - "9091:8080"
+    volumes:
+      - ./infra/powerautomate-mock:/home/wiremock:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/__admin"]
       interval: 10s

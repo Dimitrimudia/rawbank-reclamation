@@ -42,6 +42,9 @@ const schema = z.object({
     if (!data.compteSource) {
       ctx.addIssue({ code: 'custom', path: ['compteSource'], message: 'Compte source requis si remboursé' })
     }
+    if (!data.dateTransaction || String(data.dateTransaction).trim() === '') {
+      ctx.addIssue({ code: 'custom', path: ['dateTransaction'], message: 'Date de transaction requise si remboursé' })
+    }
   }
   if (data.domaine === 'Monetique' && !data.numeroCarte) {
     ctx.addIssue({ code: 'custom', path: ['numeroCarte'], message: 'Numéro carte requis pour domaine Monétique' })
@@ -229,7 +232,8 @@ export default function ComplaintForm({ onSuccess }) {
 
     const res = await submit(payload)
     if (res?.ok) {
-      onSuccess?.({ trackingId })
+      const complaintNumber = res.data?.complaintNumber
+      onSuccess?.({ complaintNumber })
       setForm({
         typeReclamation: '',
         description: '',
@@ -337,6 +341,29 @@ export default function ComplaintForm({ onSuccess }) {
                 {errors.typeReclamation && <span className="error" role="alert">{errors.typeReclamation}</span>}
               </div>
 
+              {/* Champs déplacés ici: Numéro client, Téléphone, Date transaction */}
+              <div className="field floating">
+                <div className="control">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
+                  <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
+                  <span className="floating-label" id="label-numeroClient">Numéro client</span>
+                </div>
+              </div>
+              <div className="field floating">
+                <div className="control">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0  0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
+                  <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
+                  <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
+                </div>
+              </div>
+              <div className="field floating">
+                <div className="control">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v12a2 2 0  0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8H5v8h14v-8Z" fill="currentColor"/></svg>
+                  <input type="date" name="dateTransaction" value={form.dateTransaction} onChange={handleChange} />
+                  <span className="floating-label" id="label-dateTransaction">Date transaction{form.extourne ? '*' : ''}</span>
+                </div>
+              </div>
+
               {/* Champ canal retiré */}
               <fieldset className="field" aria-label="Remboursement">
                 <legend className="label">Remboursement</legend>
@@ -438,21 +465,6 @@ export default function ComplaintForm({ onSuccess }) {
 
         {/* Champ canal retiré */}
 
-        <div className="field floating">
-          <div className="control">
-            <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 4h16v16H4V4Zm4 4h8v2H8V8Z" fill="currentColor"/></svg>
-            <input name="numeroClient" id="numeroClient" value={form.numeroClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={8} />
-            <span className="floating-label" id="label-numeroClient">Numéro client</span>
-          </div>
-        </div>
-        <div className="field floating">
-          <div className="control">
-            <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.05-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1A17 17 0 0 1 3 7a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.24 1.05l-2.31 2.16Z" fill="currentColor"/></svg>
-            <input name="telephoneClient" id="telephoneClient" value={form.telephoneClient} onChange={handleChange} placeholder=" " inputMode="numeric" autoComplete="off" maxLength={14} />
-            <span className="floating-label" id="label-telephoneClient">Téléphone client</span>
-          </div>
-        </div>
-
         {form.domaine === 'Monetique' && (
           <div className="field floating">
             <div className="control">
@@ -464,16 +476,6 @@ export default function ComplaintForm({ onSuccess }) {
           </div>
         )}
 
-        <div className="field floating">
-          <div className="control">
-            <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8H5v8h14v-8Z" fill="currentColor"/></svg>
-            <input type="date" name="dateTransaction" value={form.dateTransaction} onChange={handleChange} />
-            <span className="floating-label" id="label-dateTransaction">Date transaction</span>
-          </div>
-        </div>
-
-        
-
         <div className="field floating full-row">
           <div className="control">
             <svg className="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 3h12l4 4v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 4v2h12V7H6Zm0 4v2h12v-2H6Zm0 4v2h8v-2H6Z" fill="currentColor"/></svg>
@@ -482,11 +484,6 @@ export default function ComplaintForm({ onSuccess }) {
           </div>
         </div>
 
-        {/* Champ Avis motivé retiré */}
-
-        {/* Champ Motif BCC retiré – bloc supprimé pour éviter tout texte résiduel */}
-
-        
             </div>
           </div>
 

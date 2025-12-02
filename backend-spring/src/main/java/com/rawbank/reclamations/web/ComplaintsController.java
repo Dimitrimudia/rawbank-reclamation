@@ -28,19 +28,32 @@ public class ComplaintsController {
     @PostMapping
     public Mono<ResponseEntity<Map<String, Object>>> submit(@RequestBody @Validated ComplaintDto payload) {
         log.debug("POST /api/complaints payload DTO in");
-        // Publication asynchrone non bloquante
+        // Retourner directement le numéro de réclamation officiel fourni par Power Automate
         return complaintsService.submit(payload)
-                .then(Mono.fromSupplier(() -> {
+                .map(complaintNumber -> {
                     Map<String, Object> body = new HashMap<>();
                     body.put("ok", true);
-                    body.put("queued", true);
-                    return ResponseEntity.status(HttpStatus.ACCEPTED).body(body);
-                }))
+                    body.put("complaintNumber", complaintNumber);
+                    return ResponseEntity.status(HttpStatus.CREATED).body(body);
+                })
                 .onErrorResume(ex -> Mono.fromSupplier(() -> {
                     Map<String, Object> err = new HashMap<>();
                     err.put("ok", false);
                     err.put("error", "Payload invalide ou erreur serveur");
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
                 }));
+    }
+
+    // Endpoint de statut conservé pour compat, mais non requis si on renvoie le numéro immédiatement.
+    @GetMapping("/{trackingId}")
+    public Mono<ResponseEntity<Map<String, Object>>> getStatus(@PathVariable String trackingId) {
+        return complaintsService.status(trackingId)
+                .map(status -> {
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("status", status.status());
+                    if (status.complaintNumber() != null) body.put("complaintNumber", status.complaintNumber());
+                    return ResponseEntity.status("completed".equals(status.status()) ? HttpStatus.OK : HttpStatus.ACCEPTED).body(body);
+                })
+                .defaultIfEmpty(ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("status", "unknown")));
     }
 }

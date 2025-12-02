@@ -10,5 +10,8 @@ services:
       - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-changeit}
       - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
       - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=${KAFKA_SSL_TRUSTSTORE_PASSWORD:-changeit}
+      # Bitnami entrypoint requires *_CREDENTIALS files for passwords
+      - KAFKA_SSL_KEY_CREDENTIALS=/opt/bitnami/kafka/config/certs/keystore_creds
+      - KAFKA_SSL_TRUSTSTORE_CREDENTIALS=/opt/bitnami/kafka/config/certs/truststore_creds
     volumes:
-      - ./certs/kafka:/opt/bitnami/kafka/config/certs:ro
+      - ./infra/kafka/ssl:/opt/bitnami/kafka/config/certs:ro

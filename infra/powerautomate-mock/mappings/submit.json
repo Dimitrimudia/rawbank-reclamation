@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/submit"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "complaintNumber": "{{randomValue length=10 type='NUMERIC'}}",
+      "received": "{{now}}"
+    }
+  }
+}

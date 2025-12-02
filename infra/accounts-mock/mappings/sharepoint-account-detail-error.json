@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/sharepoint-services/api/v1/account/getAccountDetail",
+    "headers": {
+      "X-Force-Error": {
+        "matches": "true"
+      }
+    }
+  },
+  "response": {
+    "status": 500,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "error": "Simulated SharePoint account detail failure" }
+  }
+}

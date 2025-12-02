@@ -72,6 +72,18 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor,
 
         // CORS
         if ("ALLOWED_ORIGINS".equalsIgnoreCase(key)) props.putIfAbsent("app.cors.allowed-origins", val);
+
+        // Power Automate
+        if ("POWERAUTOMATE_URL".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.url", val);
+        if ("POWERAUTOMATE_APIKEYHEADERNAME".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.apiKeyHeaderName", val);
+        if ("POWERAUTOMATE_APIKEY".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.apiKey", val);
+        if ("POWERAUTOMATE_TOKEN_URL".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.tokenUrl", val);
+        if ("POWERAUTOMATE_CLIENT_ID".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.clientId", val);
+        if ("POWERAUTOMATE_CLIENT_SECRET".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.clientSecret", val);
+        if ("POWERAUTOMATE_SCOPE".equalsIgnoreCase(key)) props.putIfAbsent("powerautomate.scope", val);
+
+        // Test helpers
+        if ("APP_TEST_FORCEERROR".equalsIgnoreCase(key)) props.putIfAbsent("app.test.forceError", val);
     }
 
     @Override
