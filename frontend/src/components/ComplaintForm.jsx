@@ -193,7 +193,7 @@ export default function ComplaintForm({ onSuccess }) {
       const cleaned = String(value).replace(/[^0-9.,]/g, '')
       v = cleaned
     } else if (name === 'numeroCarte') {
-      const digits = String(value).replace(/\D/g, '')
+      const digits = String(value).replace(/\D/g, '').slice(0, 16)
       v = digits.replace(/(.{4})/g, '$1 ').trim()
     } else {
       v = value
@@ -305,15 +305,24 @@ export default function ComplaintForm({ onSuccess }) {
   }
 
   // Affichage toast sur récupération des comptes (via hook useAccounts)
+  const lastAccountsCountRef = useRef(null)
+  // Afficher le toast uniquement si un appel API de récupération de comptes est pertinent (extourne=true)
   useEffect(() => {
+    const fetchEnabled = form.extourne === true
+    if (!fetchEnabled) return
     if (accountsError) {
       setToast({ type: 'error', message: accountsError })
+      lastAccountsCountRef.current = null
       return
     }
-    if (Array.isArray(accounts)) {
-      setToast({ type: 'success', message: `Comptes récupérés: ${accounts.length}` })
+    if (!loadingAccounts && Array.isArray(accounts)) {
+      const count = accounts.length
+      if (lastAccountsCountRef.current !== count) {
+        lastAccountsCountRef.current = count
+        setToast({ type: 'success', message: `Comptes récupérés: ${count}` })
+      }
     }
-  }, [accounts, accountsError])
+  }, [form.extourne, loadingAccounts, accountsError, accounts])
 
   useEffect(() => {
     if (toast) {
@@ -372,7 +381,7 @@ export default function ComplaintForm({ onSuccess }) {
             </div>
           </div>
         )}
-        <h3 className="section-title"><span className="badge">1</span> Détails de la transaction</h3>
+        <h3 className="section-title">Détails de la transaction</h3>
         <div id="details-section">
           <div className="grid" role="group" aria-label="Détails de la transaction">
             <div className="row-4060 full-row">
@@ -557,7 +566,7 @@ export default function ComplaintForm({ onSuccess }) {
           </div>
         </div>
 
-        <h3 className="section-title"><span className="badge">2</span> Informations complémentaires</h3>
+        <h3 className="section-title">Informations complémentaires</h3>
           <div id="extras-section">
             <div className="grid" role="group" aria-label="Informations complémentaires">
 

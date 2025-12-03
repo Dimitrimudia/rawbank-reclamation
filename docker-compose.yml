@@ -5,15 +5,14 @@ services:
     image: confluentinc/cp-kafka:7.6.1
     container_name: rawbank-kafka
     ports:
-      - "9092:9092" # PLAINTEXT (dev)
-      - "9094:9094" # SASL_SSL (secure)
+      - "9092:9092" # PLAINTEXT seul
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,SASL_SSL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,SASL_SSL://host.docker.internal:9094
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,SASL_SSL:SASL_SSL,CONTROLLER:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
       - KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID}
       - CLUSTER_ID=${KAFKA_CLUSTER_ID}
@@ -24,21 +23,9 @@ services:
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - KAFKA_LOG_DIRS=/var/lib/kafka/data
       - CONFLUENT_METRICS_ENABLE=false
-      # SSL (TLS) keystore/truststore
-      - KAFKA_SSL_KEYSTORE_FILENAME=kafka.keystore.jks
-      - KAFKA_SSL_KEYSTORE_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-changeit}
-      - KAFKA_SSL_KEY_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-changeit}
-      - KAFKA_SSL_TRUSTSTORE_FILENAME=kafka.truststore.jks
-      - KAFKA_SSL_TRUSTSTORE_PASSWORD=${KAFKA_SSL_TRUSTSTORE_PASSWORD:-changeit}
-      # Confluent/Bitnami entrypoints expect credentials files when SSL enabled
-      - KAFKA_SSL_KEY_CREDENTIALS=/etc/kafka/secrets/keystore_creds
-      - KAFKA_SSL_TRUSTSTORE_CREDENTIALS=/etc/kafka/secrets/truststore_creds
-      - KAFKA_SSL_CLIENT_AUTH=none
-      # SASL SCRAM
-      - KAFKA_SASL_ENABLED_MECHANISMS=SCRAM-SHA-512
+      - KAFKA_OPTS=-Duser.timezone=UTC
     volumes:
       - kafka_data:/var/lib/kafka/data
-      - ./infra/kafka/ssl:/etc/kafka/secrets:ro
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -53,14 +40,10 @@ services:
     entrypoint: ["bash","-lc"]
     environment:
       - KAFKA_BROKER=${KAFKA_BROKER:-kafka:9092}
-      - KAFKA_USER=${KAFKA_USERNAME}
-      - KAFKA_PASSWORD=${KAFKA_PASSWORD}
       - COMPLAINTS_TOPIC=${COMPLAINTS_TOPIC:-complaints_raw}
     command: |
       HOST=$${KAFKA_BROKER%%:*}; PORT=$${KAFKA_BROKER##*:};
       until (echo > /dev/tcp/$$HOST/$$PORT) >/dev/null 2>&1; do echo 'waiting for kafka'; sleep 2; done;
-      echo 'creating SCRAM user';
-      kafka-configs --bootstrap-server $${KAFKA_BROKER} --alter --add-config "SCRAM-SHA-512=[password=$${KAFKA_PASSWORD}]" --entity-type users --entity-name $${KAFKA_USER} || true;
       echo 'ensuring topic exists';
       kafka-topics --bootstrap-server $${KAFKA_BROKER} --create --if-not-exists --topic $${COMPLAINTS_TOPIC} --replication-factor 1 --partitions 3 || true;
 

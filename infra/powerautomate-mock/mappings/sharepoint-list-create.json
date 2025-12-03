@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/sharepoint/lists/reclamations/items"
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "id": "R-{{randomValue length=8 type='ALPHANUMERIC'}}",
+      "created": "{{now}}"
+    }
+  }
+}
