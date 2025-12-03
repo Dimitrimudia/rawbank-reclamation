@@ -53,6 +53,8 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor,
         if ("SHAREPOINT_USERNAME".equalsIgnoreCase(key)) props.putIfAbsent("sharepoint.auth.username", val);
         if ("SHAREPOINT_PASSWORD".equalsIgnoreCase(key)) props.putIfAbsent("sharepoint.auth.password", val);
         if ("SHAREPOINT_ACCOUNT_DETAILS_URL".equalsIgnoreCase(key)) props.putIfAbsent("accounts.details.url", val);
+        // SharePoint list create
+        if ("SHAREPOINT_LIST_CREATE_URL".equalsIgnoreCase(key)) props.putIfAbsent("sharepoint.list.create.url", val);
 
         // Accounts OAuth/token si utilisé
         if ("ACCOUNTS_TOKEN_URL".equalsIgnoreCase(key)) props.putIfAbsent("accounts.auth.tokenUrl", val);

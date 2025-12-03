@@ -1,6 +1,7 @@
 package com.rawbank.reclamations.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +9,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
@@ -36,7 +38,13 @@ public class KafkaConfig {
     @Bean
     public ProducerFactory<String, Object> producerFactory(Environment env) {
         Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        String securityProtocol = env.getProperty("spring.kafka.properties.security.protocol", "PLAINTEXT");
+        // Forcer bootstrap plaintext local pour accélérer le dev si protocole = PLAINTEXT
+        if ("PLAINTEXT".equalsIgnoreCase(securityProtocol)) {
+            configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        } else {
+            configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        }
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
@@ -53,6 +61,16 @@ public class KafkaConfig {
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> pf) {
         return new KafkaTemplate<>(pf);
+    }
+
+    // KafkaAdmin personnalisé pour éviter toute tentative de connexion sur un ancien port (ex: 9094)
+    @Bean
+    public KafkaAdmin kafkaAdmin(Environment env) {
+        Map<String, Object> configs = new HashMap<>();
+        String securityProtocol = env.getProperty("spring.kafka.properties.security.protocol", "PLAINTEXT");
+        String servers = "PLAINTEXT".equalsIgnoreCase(securityProtocol) ? "localhost:9092" : bootstrapServers;
+        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, servers);
+        return new KafkaAdmin(configs);
     }
 
     private void copyIfPresent(Environment env, Map<String, Object> target, String springKey, String kafkaKey) {

@@ -14,7 +14,7 @@ public class ComplaintsService {
     private static final Logger log = LoggerFactory.getLogger(ComplaintsService.class);
 
     private final MotifBccResolver motifBccResolver;
-    private final PowerAutomateService powerAutomateService;
+    private final SharepointListService sharepointListService;
 
     private final EventPublisherService eventPublisherService;
     private final PayloadBuilderService payloadBuilderService;
@@ -26,13 +26,13 @@ public class ComplaintsService {
                              AccountsService accountsService,
                              MotifBccResolver motifBccResolver,
                              SubmissionTrackingService submissionTrackingService,
-                             PowerAutomateService powerAutomateService) {
+                             SharepointListService sharepointListService) {
         this.eventPublisherService = eventPublisherService;
         this.payloadBuilderService = payloadBuilderService;
         this.accountsService = accountsService;
         this.motifBccResolver = motifBccResolver;
         this.submissionTrackingService = submissionTrackingService;
-        this.powerAutomateService = powerAutomateService;
+        this.sharepointListService = sharepointListService;
     }
 
     /**
@@ -155,9 +155,9 @@ public class ComplaintsService {
 
             overrides.put("TRACKINGID", trackingId);
             java.util.Map<String, Object> finalPayload = payloadBuilderService.buildWithOverrides(payload, overrides);
-            // Appel synchrone à Power Automate pour récupérer le numéro immédiatement
+            // Création synchrone de l'item dans SharePoint et récupération d'un identifiant immédiatement
             submissionTrackingService.markPending(trackingId);
-            return powerAutomateService.submit(finalPayload)
+            return sharepointListService.createItem(finalPayload)
                     .map(resp -> extractComplaintNumber(resp))
                     .flatMap(number -> {
                         if (number == null || number.isBlank()) {

@@ -35,7 +35,12 @@ public class KafkaConsumerErrorHandlerConfig {
     @Bean
     public ConsumerFactory<String, Object> consumerFactory(Environment env) {
         Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        String securityProtocol = env.getProperty("spring.kafka.properties.security.protocol", "PLAINTEXT");
+        if ("PLAINTEXT".equalsIgnoreCase(securityProtocol)) {
+            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        } else {
+            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        }
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, org.springframework.kafka.support.serializer.JsonDeserializer.class);
         props.put(org.springframework.kafka.support.serializer.JsonDeserializer.TRUSTED_PACKAGES, "*");
