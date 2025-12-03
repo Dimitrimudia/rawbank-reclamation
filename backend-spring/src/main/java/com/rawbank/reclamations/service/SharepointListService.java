@@ -37,30 +37,35 @@ public class SharepointListService {
         this.authService = authService;
         this.forceError = forceError;
 
-        String url = createItemUrl;
-        if (!StringUtils.hasText(url)) {
-            try {
-                Dotenv dotenvRepo = Dotenv.configure().directory("../").ignoreIfMissing().load();
-                url = dotenvRepo.get("SHAREPOINT_LIST_CREATE_URL");
-            } catch (Exception ignore) {}
-            if (!StringUtils.hasText(url)) {
-                try {
-                    Dotenv dotenvModule = Dotenv.configure().directory(".").ignoreIfMissing().load();
-                    url = dotenvModule.get("SHAREPOINT_LIST_CREATE_URL");
-                } catch (Exception ignore) {}
-            }
-        }
-        this.createItemUrl = url;
+        // Load optional .env from repo and module for fallbacks
         Dotenv dotenvRepo = null;
         Dotenv dotenvModule = null;
         try { dotenvRepo = Dotenv.configure().directory("../").ignoreIfMissing().load(); } catch (Exception ignore) {}
         try { dotenvModule = Dotenv.configure().directory(".").ignoreIfMissing().load(); } catch (Exception ignore) {}
-        this.graphBaseUrl = StringUtils.hasText(graphBaseUrl) ? graphBaseUrl : (dotenvRepo != null ? dotenvRepo.get("GRAPH_BASE_URL") : null);
-        this.graphSiteId = StringUtils.hasText(graphSiteId) ? graphSiteId : (dotenvRepo != null ? dotenvRepo.get("GRAPH_SITE_ID") : null);
-        this.graphListId = StringUtils.hasText(graphListId) ? graphListId : (dotenvRepo != null ? dotenvRepo.get("GRAPH_LIST_ID") : null);
-        if (!StringUtils.hasText(this.graphBaseUrl) && dotenvModule != null) this.graphBaseUrl = dotenvModule.get("GRAPH_BASE_URL");
-        if (!StringUtils.hasText(this.graphSiteId) && dotenvModule != null) this.graphSiteId = dotenvModule.get("GRAPH_SITE_ID");
-        if (!StringUtils.hasText(this.graphListId) && dotenvModule != null) this.graphListId = dotenvModule.get("GRAPH_LIST_ID");
+
+        // Resolve create item URL from property or .env fallbacks
+        String createItemUrlResolved = createItemUrl;
+        if (!StringUtils.hasText(createItemUrlResolved)) {
+            if (dotenvRepo != null) createItemUrlResolved = dotenvRepo.get("SHAREPOINT_LIST_CREATE_URL");
+            if (!StringUtils.hasText(createItemUrlResolved) && dotenvModule != null) {
+                createItemUrlResolved = dotenvModule.get("SHAREPOINT_LIST_CREATE_URL");
+            }
+        }
+
+        // Resolve Graph configs from properties or .env fallbacks
+        String graphBaseUrlResolved = StringUtils.hasText(graphBaseUrl) ? graphBaseUrl : (dotenvRepo != null ? dotenvRepo.get("GRAPH_BASE_URL") : null);
+        String graphSiteIdResolved = StringUtils.hasText(graphSiteId) ? graphSiteId : (dotenvRepo != null ? dotenvRepo.get("GRAPH_SITE_ID") : null);
+        String graphListIdResolved = StringUtils.hasText(graphListId) ? graphListId : (dotenvRepo != null ? dotenvRepo.get("GRAPH_LIST_ID") : null);
+
+        if (!StringUtils.hasText(graphBaseUrlResolved) && dotenvModule != null) graphBaseUrlResolved = dotenvModule.get("GRAPH_BASE_URL");
+        if (!StringUtils.hasText(graphSiteIdResolved) && dotenvModule != null) graphSiteIdResolved = dotenvModule.get("GRAPH_SITE_ID");
+        if (!StringUtils.hasText(graphListIdResolved) && dotenvModule != null) graphListIdResolved = dotenvModule.get("GRAPH_LIST_ID");
+
+        // Assign final fields once
+        this.createItemUrl = createItemUrlResolved;
+        this.graphBaseUrl = graphBaseUrlResolved;
+        this.graphSiteId = graphSiteIdResolved;
+        this.graphListId = graphListIdResolved;
     }
 
     public Mono<Map<String, Object>> createItem(Map<String, Object> payload) {
